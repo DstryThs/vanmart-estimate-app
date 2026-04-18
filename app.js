@@ -1,5 +1,10 @@
 'use strict';
 
+// === CONFIG ===
+// Paste the Google Apps Script Web App URL here after deploying apps-script.gs.
+// Leave empty to disable cloud sync (app still works via localStorage).
+const SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbx7ZzFPl3ldsv4oy_3F_q-TIGgZWHAC1MlJvdQrDWwSR1jVEzzHQh5sDHXMxFuUnT7jEw/exec';
+
 // === STATE ===
 const state = {
   currentId: null,
@@ -21,6 +26,7 @@ const saveToStorage = () =>
 
 // === NAVIGATION ===
 function showView(name) {
+  if (name === 'home') renderHome();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   window.scrollTo(0, 0);
@@ -364,7 +370,8 @@ function saveEstimate() {
     customer: { ...state.customer },
     vehicle: { ...state.vehicle },
     selectedParts: [...state.selected],
-    total
+    total,
+    synced: false
   };
 
   if (state.currentId) {
@@ -377,10 +384,63 @@ function saveEstimate() {
   }
 
   saveToStorage();
+  syncEstimate(est);
 
   const btn = document.getElementById('btn-save');
   btn.textContent = 'Saved!';
   setTimeout(() => { btn.textContent = state.currentId ? 'Update' : 'Save'; }, 2000);
+}
+
+// === CLOUD SYNC (Google Sheets) ===
+function buildSyncPayload(est) {
+  const products = est.selectedParts
+    .map(id => PRODUCTS.find(p => p.id === id))
+    .filter(Boolean);
+  const v = est.vehicle;
+  const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
+    .filter(Boolean).join(' ');
+  return {
+    id: est.id,
+    createdAt: est.createdAt,
+    updatedAt: est.updatedAt,
+    customerName: est.customer.name || '',
+    customerPhone: est.customer.phone || '',
+    customerEmail: est.customer.email || '',
+    vehicle: vehicleStr,
+    year: v.year || '',
+    make: v.make || '',
+    model: v.model || '',
+    wheelbase: v.wheelbase || '',
+    partCount: products.length,
+    total: est.total,
+    parts: products.map(p => ({ id: p.id, name: p.name, category: p.category, price: p.installedPrice }))
+  };
+}
+
+function syncEstimate(est) {
+  if (!SHEETS_WEBHOOK_URL) return;
+  const payload = JSON.stringify(buildSyncPayload(est));
+  // text/plain avoids a CORS preflight against Apps Script.
+  fetch(SHEETS_WEBHOOK_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: payload,
+    keepalive: true
+  }).then(() => {
+    const idx = state.estimates.findIndex(e => e.id === est.id);
+    if (idx >= 0) {
+      state.estimates[idx].synced = true;
+      saveToStorage();
+    }
+  }).catch(() => {
+    // Stays unsynced; retried on next app load.
+  });
+}
+
+function syncPending() {
+  if (!SHEETS_WEBHOOK_URL) return;
+  state.estimates.filter(e => !e.synced).forEach(syncEstimate);
 }
 
 // === EVENT LISTENERS ===
@@ -456,7 +516,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-share').addEventListener('click', shareEstimate);
   document.getElementById('btn-save').addEventListener('click', saveEstimate);
 
+  // Done -> home
+  document.getElementById('btn-estimate-done').addEventListener('click', () => showView('home'));
+
   // Init
-  renderHome();
   showView('home');
+  syncPending();
 });
