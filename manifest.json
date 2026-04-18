@@ -1,0 +1,11 @@
+{
+  "name": "The Van Mart - Estimates",
+  "short_name": "VM Estimates",
+  "description": "Quick estimates for The Van Mart customers",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#1B2B5A",
+  "theme_color": "#1B2B5A",
+  "orientation": "portrait",
+  "icons": []
+}

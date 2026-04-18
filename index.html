@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="VM Estimates">
+  <meta name="theme-color" content="#1B2B5A">
+  <title>The Van Mart - Estimates</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- HOME -->
+    <div id="view-home" class="view active">
+      <header class="header">
+        <div class="header-title">
+          <span class="header-brand">The Van Mart</span>
+          <span class="header-sub">Estimates</span>
+        </div>
+        <button id="btn-new-estimate" class="btn-accent">+ New</button>
+      </header>
+      <div class="content">
+        <div id="estimates-list"></div>
+        <div id="estimates-empty" class="empty-state">
+          <div class="empty-icon">&#128221;</div>
+          <p>No estimates yet</p>
+          <p class="empty-sub">Tap "+ New" to start one</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER / VEHICLE -->
+    <div id="view-customer" class="view">
+      <header class="header">
+        <button class="btn-back" data-target="home">&#8592;</button>
+        <div class="header-title">
+          <span class="header-brand">New Estimate</span>
+        </div>
+      </header>
+      <div class="content">
+        <form id="form-customer" novalidate>
+          <section class="form-section">
+            <h2 class="section-label">Customer</h2>
+            <div class="form-group">
+              <label for="customer-name">Name <span class="required">*</span></label>
+              <input type="text" id="customer-name" autocomplete="name" placeholder="Full name" required>
+            </div>
+            <div class="form-group">
+              <label for="customer-phone">Phone</label>
+              <input type="tel" id="customer-phone" autocomplete="tel" placeholder="555-555-5555">
+            </div>
+            <div class="form-group">
+              <label for="customer-email">Email</label>
+              <input type="email" id="customer-email" autocomplete="email" placeholder="email@example.com">
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h2 class="section-label">Vehicle</h2>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="vehicle-year">Year</label>
+                <input type="text" id="vehicle-year" placeholder="2024" inputmode="numeric" maxlength="4">
+              </div>
+              <div class="form-group">
+                <label for="vehicle-make">Make</label>
+                <input type="text" id="vehicle-make" placeholder="Mercedes-Benz">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="vehicle-model">Model</label>
+              <input type="text" id="vehicle-model" placeholder="Sprinter 2500">
+            </div>
+            <div class="form-group">
+              <label>Wheelbase</label>
+              <div class="radio-group">
+                <label class="radio-option">
+                  <input type="radio" name="wheelbase" value="144">
+                  <span class="radio-label">144"</span>
+                </label>
+                <label class="radio-option">
+                  <input type="radio" name="wheelbase" value="170">
+                  <span class="radio-label">170"</span>
+                </label>
+                <label class="radio-option">
+                  <input type="radio" name="wheelbase" value="both" checked>
+                  <span class="radio-label">Unknown</span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary btn-full">Select Parts &rarr;</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- PARTS SELECTOR -->
+    <div id="view-parts" class="view">
+      <header class="header">
+        <button class="btn-back" data-target="customer">&#8592;</button>
+        <div class="header-title">
+          <span class="header-brand">Select Parts</span>
+        </div>
+      </header>
+      <div class="search-bar">
+        <input type="search" id="parts-search" placeholder="&#128269; Search parts...">
+      </div>
+      <div class="content content-parts" id="parts-list"></div>
+      <div class="sticky-footer">
+        <div class="footer-summary">
+          <span id="selected-count" class="footer-count">0 items</span>
+          <span id="selected-total" class="footer-total">$0.00</span>
+        </div>
+        <button id="btn-view-estimate" class="btn-primary" disabled>View Estimate</button>
+      </div>
+    </div>
+
+    <!-- ESTIMATE VIEW -->
+    <div id="view-estimate" class="view">
+      <header class="header">
+        <button class="btn-back" data-target="parts">&#8592;</button>
+        <div class="header-title">
+          <span class="header-brand">Estimate</span>
+        </div>
+      </header>
+      <div class="content" id="estimate-content"></div>
+      <div class="sticky-footer">
+        <button id="btn-share" class="btn-secondary">&#8679; Share</button>
+        <button id="btn-save" class="btn-primary">Save</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="data/pricing.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
