@@ -178,7 +178,9 @@ body {
 
 .required { color: var(--danger); }
 
-.form-group input {
+.form-group input,
+.form-group select,
+.form-group textarea {
   width: 100%;
   padding: 11px 12px;
   border: 1.5px solid var(--border);
@@ -187,9 +189,15 @@ body {
   background: var(--bg);
   outline: none;
   color: var(--text);
+  font-family: var(--font);
 }
 
-.form-group input:focus { border-color: var(--selected-border); background: #fff; }
+.form-group textarea { resize: vertical; min-height: 70px; line-height: 1.4; }
+.form-group select { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%), linear-gradient(135deg, var(--text-muted) 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: var(--selected-border); background: #fff; }
 .form-group input.error { border-color: var(--danger); }
 
 .radio-group {
@@ -459,22 +467,69 @@ body {
   line-height: 1.5;
 }
 
+.internal-section {
+  border: 1px dashed var(--border);
+  background: #FAFBFC;
+  margin-top: 6px;
+}
+
+.internal-section .estimate-section-label { color: var(--text-muted); }
+.internal-meta { font-size: 11px; color: var(--text-muted); margin-top: 6px; letter-spacing: 0.02em; }
+
 /* === HOME - ESTIMATE CARDS === */
+.estimate-card-row {
+  position: relative;
+  margin-bottom: 10px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.estimate-card-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 160px;
+  display: flex;
+}
+
+.card-action {
+  flex: 1;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  padding: 0;
+}
+
+.card-action:active { opacity: 0.85; }
+.action-share { background: var(--selected-border); }
+.action-delete { background: var(--danger); }
+
 .estimate-card {
   background: var(--surface);
   border-radius: var(--radius);
   padding: 15px 16px;
-  margin-bottom: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  transition: box-shadow 0.15s;
+  position: relative;
+  z-index: 1;
+  transform: translateX(0);
+  transition: transform 0.22s ease-out;
+  will-change: transform;
 }
 
-.estimate-card:active { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.estimate-card-row.open .estimate-card {
+  transform: translateX(-160px);
+}
+
+.estimate-card:active { background: #FAFBFD; }
 
 .estimate-card-info { flex: 1; min-width: 0; }
 .estimate-card-name { font-size: 16px; font-weight: 600; }

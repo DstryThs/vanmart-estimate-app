@@ -5,12 +5,24 @@
 // Leave empty to disable cloud sync (app still works via localStorage).
 const SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbx7ZzFPl3ldsv4oy_3F_q-TIGgZWHAC1MlJvdQrDWwSR1jVEzzHQh5sDHXMxFuUnT7jEw/exec';
 
+// Schema version for downstream-agent compatibility. Bump when payload shape changes.
+const SCHEMA_VERSION = 1;
+
+// Default silence-follow-up window for the downstream follow-up agent.
+// Not used by the PWA itself - kept here so the value is co-located with the app.
+const FOLLOWUP_HOURS = 48;
+
+const STATUS_VALUES = ['draft', 'shared', 'approved', 'declined', 'deferred', 'cancelled'];
+
 // === STATE ===
 const state = {
   currentId: null,
   customer: {},
   vehicle: {},
   selected: new Set(),
+  sharedAt: null,
+  status: 'draft',
+  notes: '',
   estimates: JSON.parse(localStorage.getItem('vm_estimates') || '[]')
 };
 
@@ -37,14 +49,14 @@ function renderHome() {
   const list = document.getElementById('estimates-list');
   const empty = document.getElementById('estimates-empty');
 
-  if (state.estimates.length === 0) {
+  const visible = state.estimates.filter(e => e.status !== 'cancelled');
+  if (visible.length === 0) {
     list.innerHTML = '';
     empty.style.display = 'block';
     return;
   }
-
   empty.style.display = 'none';
-  const sorted = state.estimates.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  const sorted = visible.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
   list.innerHTML = `
     <div class="home-section-label">Recent Estimates</div>
@@ -54,15 +66,21 @@ function renderHome() {
         .filter(Boolean).join(' ') || 'Vehicle not specified';
       const date = new Date(est.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       return `
-        <div class="estimate-card" data-id="${est.id}">
-          <div class="estimate-card-info">
-            <div class="estimate-card-name">${est.customer.name}</div>
-            <div class="estimate-card-vehicle">${vehicleStr}</div>
-            <div class="estimate-card-date">${date}</div>
+        <div class="estimate-card-row" data-id="${est.id}">
+          <div class="estimate-card-actions">
+            <button class="card-action action-share" data-id="${est.id}" aria-label="Share estimate">Share</button>
+            <button class="card-action action-delete" data-id="${est.id}" aria-label="Delete estimate">Delete</button>
           </div>
-          <div class="estimate-card-right">
-            <div class="estimate-card-total">${fmt(est.total)}</div>
-            <div class="estimate-card-arrow">&#8250;</div>
+          <div class="estimate-card" data-id="${est.id}">
+            <div class="estimate-card-info">
+              <div class="estimate-card-name">${est.customer.name}</div>
+              <div class="estimate-card-vehicle">${vehicleStr}</div>
+              <div class="estimate-card-date">${date}</div>
+            </div>
+            <div class="estimate-card-right">
+              <div class="estimate-card-total">${fmt(est.total)}</div>
+              <div class="estimate-card-arrow">&#8250;</div>
+            </div>
           </div>
         </div>
       `;
@@ -76,6 +94,9 @@ function startNew() {
   state.customer = {};
   state.vehicle = {};
   state.selected = new Set();
+  state.sharedAt = null;
+  state.status = 'draft';
+  state.notes = '';
   document.getElementById('form-customer').reset();
   document.querySelector('input[name="wheelbase"][value="both"]').checked = true;
   showView('customer');
@@ -89,6 +110,9 @@ function loadEstimate(id) {
   state.customer = { ...est.customer };
   state.vehicle = { ...est.vehicle };
   state.selected = new Set(est.selectedParts);
+  state.sharedAt = est.sharedAt || null;
+  state.status = est.status || 'draft';
+  state.notes = est.notes || '';
 
   document.getElementById('customer-name').value = est.customer.name || '';
   document.getElementById('customer-phone').value = est.customer.phone || '';
@@ -296,18 +320,40 @@ function renderEstimate() {
       This is an estimate only. Final pricing subject to vehicle inspection and part availability.
       Installed prices include parts and labor.
     </p>
+
+    ${state.currentId ? `
+      <div class="estimate-section internal-section">
+        <div class="estimate-section-label">Internal Tracking</div>
+        <div class="form-group">
+          <label for="estimate-status">Status</label>
+          <select id="estimate-status">
+            ${STATUS_VALUES.map(s => `<option value="${s}">${s[0].toUpperCase() + s.slice(1)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="estimate-notes">Notes</label>
+          <textarea id="estimate-notes" rows="3" placeholder="Customer response, next steps, etc."></textarea>
+        </div>
+        ${state.sharedAt ? `<div class="internal-meta">Shared ${new Date(state.sharedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>` : ''}
+      </div>
+    ` : ''}
   `;
 
   document.getElementById('estimate-content').innerHTML = html;
   document.getElementById('btn-save').textContent = state.currentId ? 'Update' : 'Save';
+
+  const statusEl = document.getElementById('estimate-status');
+  if (statusEl) statusEl.value = state.status || 'draft';
+  const notesEl = document.getElementById('estimate-notes');
+  if (notesEl) notesEl.value = state.notes || '';
 }
 
 // === SHARE ===
-function shareEstimate() {
-  const products = getSelectedProducts();
-  const total = calcTotal(products);
-  const c = state.customer;
-  const v = state.vehicle;
+function shareEstimate(est) {
+  const c = est.customer;
+  const v = est.vehicle;
+  const products = est.selectedParts.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
+  const total = est.total;
 
   const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
     .filter(Boolean).join(' ');
@@ -340,6 +386,8 @@ function shareEstimate() {
     'This is an estimate only. Final pricing subject to vehicle inspection and part availability.'
   ].filter(l => l !== null).join('\n');
 
+  markShared(est.id);
+
   if (navigator.share) {
     navigator.share({
       title: `Van Mart Estimate - ${c.name}`,
@@ -348,11 +396,43 @@ function shareEstimate() {
   } else {
     navigator.clipboard.writeText(lines).then(() => {
       const btn = document.getElementById('btn-share');
-      const orig = btn.textContent;
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = orig; }, 2000);
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+      }
     }).catch(() => alert('Could not copy. Please screenshot the estimate.'));
   }
+}
+
+function markShared(id) {
+  const est = state.estimates.find(e => e.id === id);
+  if (!est) return;
+  const now = new Date().toISOString();
+  est.sharedAt = now;
+  if (est.status === 'draft' || !est.status) est.status = 'shared';
+  est.updatedAt = now;
+  est.synced = false;
+  saveToStorage();
+  syncEstimate(est);
+  if (state.currentId === id) {
+    state.sharedAt = est.sharedAt;
+    state.status = est.status;
+    renderEstimate();
+  }
+  renderHome();
+}
+
+// === DELETE (soft) ===
+function deleteEstimate(id) {
+  const est = state.estimates.find(e => e.id === id);
+  if (!est) return;
+  est.status = 'cancelled';
+  est.updatedAt = new Date().toISOString();
+  est.synced = false;
+  saveToStorage();
+  syncEstimate(est);
+  renderHome();
 }
 
 // === SAVE ===
@@ -361,12 +441,15 @@ function saveEstimate() {
   const total = calcTotal(products);
 
   const now = new Date().toISOString();
+  const existing = state.currentId ? state.estimates.find(e => e.id === state.currentId) : null;
   const est = {
+    schemaVersion: SCHEMA_VERSION,
     id: state.currentId || uid(),
-    createdAt: state.currentId
-      ? (state.estimates.find(e => e.id === state.currentId)?.createdAt || now)
-      : now,
+    createdAt: existing ? existing.createdAt : now,
     updatedAt: now,
+    sharedAt: state.sharedAt || (existing ? existing.sharedAt : null) || null,
+    status: state.status || (existing ? existing.status : 'draft') || 'draft',
+    notes: state.notes || '',
     customer: { ...state.customer },
     vehicle: { ...state.vehicle },
     selectedParts: [...state.selected],
@@ -387,8 +470,29 @@ function saveEstimate() {
   syncEstimate(est);
 
   const btn = document.getElementById('btn-save');
-  btn.textContent = 'Saved!';
-  setTimeout(() => { btn.textContent = state.currentId ? 'Update' : 'Save'; }, 2000);
+  if (btn) {
+    btn.textContent = 'Saved!';
+    setTimeout(() => { btn.textContent = state.currentId ? 'Update' : 'Save'; }, 2000);
+  }
+}
+
+// Persist status/notes changes from the internal-tracking UI without the "Saved!" flash.
+function persistCurrent() {
+  if (!state.currentId) return;
+  const est = state.estimates.find(e => e.id === state.currentId);
+  if (!est) return;
+  est.status = state.status || 'draft';
+  est.notes = state.notes || '';
+  est.updatedAt = new Date().toISOString();
+  est.synced = false;
+  saveToStorage();
+  syncEstimate(est);
+}
+
+let notesDebounce = null;
+function debouncedPersistNotes() {
+  clearTimeout(notesDebounce);
+  notesDebounce = setTimeout(persistCurrent, 800);
 }
 
 // === CLOUD SYNC (Google Sheets) ===
@@ -400,9 +504,13 @@ function buildSyncPayload(est) {
   const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
     .filter(Boolean).join(' ');
   return {
+    schemaVersion: est.schemaVersion || SCHEMA_VERSION,
     id: est.id,
     createdAt: est.createdAt,
     updatedAt: est.updatedAt,
+    sharedAt: est.sharedAt || '',
+    status: est.status || 'draft',
+    notes: est.notes || '',
     customerName: est.customer.name || '',
     customerPhone: est.customer.phone || '',
     customerEmail: est.customer.email || '',
@@ -449,9 +557,107 @@ document.addEventListener('DOMContentLoaded', () => {
   // Home
   document.getElementById('btn-new-estimate').addEventListener('click', startNew);
 
-  document.getElementById('estimates-list').addEventListener('click', e => {
+  const estList = document.getElementById('estimates-list');
+
+  estList.addEventListener('click', e => {
+    const action = e.target.closest('.card-action');
+    if (action) {
+      const id = action.dataset.id;
+      const est = state.estimates.find(x => x.id === id);
+      if (!est) return;
+      if (action.classList.contains('action-share')) {
+        shareEstimate(est);
+        closeAllRows();
+      } else if (action.classList.contains('action-delete')) {
+        deleteEstimate(id);
+      }
+      return;
+    }
+    const row = e.target.closest('.estimate-card-row');
+    if (!row) return;
+    if (row.classList.contains('open')) {
+      row.classList.remove('open');
+      return;
+    }
+    if (document.querySelector('.estimate-card-row.open')) {
+      closeAllRows();
+      return;
+    }
     const card = e.target.closest('.estimate-card');
     if (card) loadEstimate(card.dataset.id);
+  });
+
+  // Swipe-to-reveal (Apple Notes style: swipe left -> Share + Delete)
+  const ACTION_WIDTH = 160;
+  let swipe = null;
+
+  function closeAllRows() {
+    document.querySelectorAll('.estimate-card-row.open').forEach(r => r.classList.remove('open'));
+  }
+
+  estList.addEventListener('touchstart', e => {
+    const row = e.target.closest('.estimate-card-row');
+    if (!row) return;
+    const t = e.touches[0];
+    swipe = {
+      row,
+      card: row.querySelector('.estimate-card'),
+      startX: t.clientX,
+      startY: t.clientY,
+      dx: 0,
+      startedOpen: row.classList.contains('open'),
+      engaged: false,
+      cancelled: false
+    };
+  }, { passive: true });
+
+  estList.addEventListener('touchmove', e => {
+    if (!swipe || swipe.cancelled) return;
+    const t = e.touches[0];
+    swipe.dx = t.clientX - swipe.startX;
+    const dy = t.clientY - swipe.startY;
+
+    if (!swipe.engaged) {
+      if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(swipe.dx)) {
+        swipe.cancelled = true;
+        return;
+      }
+      if (Math.abs(swipe.dx) < 8) return;
+      swipe.engaged = true;
+      document.querySelectorAll('.estimate-card-row.open').forEach(r => {
+        if (r !== swipe.row) r.classList.remove('open');
+      });
+    }
+
+    if (e.cancelable) e.preventDefault();
+
+    const base = swipe.startedOpen ? -ACTION_WIDTH : 0;
+    let offset = base + swipe.dx;
+    if (offset > 0) offset = 0;
+    if (offset < -ACTION_WIDTH) offset = -ACTION_WIDTH + (offset + ACTION_WIDTH) / 4;
+    swipe.card.style.transition = 'none';
+    swipe.card.style.transform = `translateX(${offset}px)`;
+  }, { passive: false });
+
+  estList.addEventListener('touchend', () => {
+    if (!swipe) return;
+    swipe.card.style.transition = '';
+    swipe.card.style.transform = '';
+
+    if (swipe.engaged) {
+      const base = swipe.startedOpen ? -ACTION_WIDTH : 0;
+      const finalOffset = base + swipe.dx;
+      const shouldOpen = finalOffset < -ACTION_WIDTH / 2;
+      swipe.row.classList.toggle('open', shouldOpen);
+    }
+    swipe = null;
+  });
+
+  estList.addEventListener('touchcancel', () => {
+    if (!swipe) return;
+    swipe.card.style.transition = '';
+    swipe.card.style.transform = '';
+    swipe = null;
   });
 
   // Back buttons
@@ -513,8 +719,27 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Share & Save
-  document.getElementById('btn-share').addEventListener('click', shareEstimate);
+  document.getElementById('btn-share').addEventListener('click', () => {
+    if (!state.currentId) saveEstimate();
+    const est = state.estimates.find(e => e.id === state.currentId);
+    if (est) shareEstimate(est);
+  });
   document.getElementById('btn-save').addEventListener('click', saveEstimate);
+
+  // Internal-tracking status + notes (delegated, so they survive re-renders)
+  const estimateContent = document.getElementById('estimate-content');
+  estimateContent.addEventListener('change', e => {
+    if (e.target.id === 'estimate-status') {
+      state.status = e.target.value;
+      persistCurrent();
+    }
+  });
+  estimateContent.addEventListener('input', e => {
+    if (e.target.id === 'estimate-notes') {
+      state.notes = e.target.value;
+      debouncedPersistNotes();
+    }
+  });
 
   // Done -> home
   document.getElementById('btn-estimate-done').addEventListener('click', () => showView('home'));
