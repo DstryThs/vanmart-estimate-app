@@ -532,9 +532,55 @@ body {
 .estimate-card:active { background: #FAFBFD; }
 
 .estimate-card-info { flex: 1; min-width: 0; }
-.estimate-card-name { font-size: 16px; font-weight: 600; }
+.estimate-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.estimate-card-name {
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .estimate-card-vehicle { font-size: 13px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .estimate-card-date { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+.status-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 20px;
+  line-height: 1.5;
+  border: 1px solid transparent;
+}
+
+.status-badge.status-shared {
+  background: var(--selected-bg);
+  color: var(--selected-border);
+  border-color: var(--selected-border);
+}
+.status-badge.status-approved {
+  background: #DCFCE7;
+  color: #15803D;
+  border-color: #15803D;
+}
+.status-badge.status-declined {
+  background: #FEE2E2;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.status-badge.status-deferred {
+  background: #FEF3C7;
+  color: #B45309;
+  border-color: #B45309;
+}
 
 .estimate-card-right { text-align: right; flex-shrink: 0; }
 .estimate-card-total { font-size: 17px; font-weight: 700; color: var(--primary); }

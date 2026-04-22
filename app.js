@@ -65,6 +65,10 @@ function renderHome() {
       const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
         .filter(Boolean).join(' ') || 'Vehicle not specified';
       const date = new Date(est.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const status = est.status || 'draft';
+      const statusBadge = status !== 'draft'
+        ? `<span class="status-badge status-${status}">${status[0].toUpperCase() + status.slice(1)}</span>`
+        : '';
       return `
         <div class="estimate-card-row" data-id="${est.id}">
           <div class="estimate-card-actions">
@@ -73,7 +77,10 @@ function renderHome() {
           </div>
           <div class="estimate-card" data-id="${est.id}">
             <div class="estimate-card-info">
-              <div class="estimate-card-name">${est.customer.name}</div>
+              <div class="estimate-card-name-row">
+                <span class="estimate-card-name">${est.customer.name}</span>
+                ${statusBadge}
+              </div>
               <div class="estimate-card-vehicle">${vehicleStr}</div>
               <div class="estimate-card-date">${date}</div>
             </div>
