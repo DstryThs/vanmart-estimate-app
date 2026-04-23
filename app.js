@@ -72,6 +72,10 @@ function renderHome() {
         .filter(Boolean).join(' ') || 'Vehicle not specified';
       const date = new Date(est.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const idAttr = esc(est.id);
+      const status = est.status || 'draft';
+      const statusBadge = status !== 'draft'
+        ? `<span class="status-badge status-${esc(status)}">${esc(status[0].toUpperCase() + status.slice(1))}</span>`
+        : '';
       return `
         <div class="estimate-card-row" data-id="${idAttr}">
           <div class="estimate-card-actions">
@@ -80,7 +84,10 @@ function renderHome() {
           </div>
           <div class="estimate-card" data-id="${idAttr}">
             <div class="estimate-card-info">
-              <div class="estimate-card-name">${esc(est.customer.name)}</div>
+              <div class="estimate-card-name-row">
+                <span class="estimate-card-name">${esc(est.customer.name)}</span>
+                ${statusBadge}
+              </div>
               <div class="estimate-card-vehicle">${esc(vehicleStr)}</div>
               <div class="estimate-card-date">${esc(date)}</div>
             </div>
