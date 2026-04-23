@@ -476,12 +476,61 @@ function markShared(id) {
 function deleteEstimate(id) {
   const est = state.estimates.find(e => e.id === id);
   if (!est) return;
+  const previousStatus = est.status && est.status !== 'cancelled' ? est.status : 'draft';
   est.status = 'cancelled';
   est.updatedAt = new Date().toISOString();
   est.synced = false;
   saveToStorage();
   syncEstimate(est);
   renderHome();
+  showUndoToast('Estimate deleted', () => restoreEstimate(id, previousStatus));
+}
+
+function restoreEstimate(id, previousStatus) {
+  const est = state.estimates.find(e => e.id === id);
+  if (!est) return;
+  est.status = previousStatus || 'draft';
+  est.updatedAt = new Date().toISOString();
+  est.synced = false;
+  saveToStorage();
+  syncEstimate(est);
+  renderHome();
+}
+
+// === TOAST ===
+let toastTimer = null;
+let toastActionHandler = null;
+
+function showUndoToast(message, onUndo) {
+  const toast = document.getElementById('toast');
+  const msgEl = document.getElementById('toast-message');
+  const actionEl = document.getElementById('toast-action');
+  if (!toast || !msgEl || !actionEl) return;
+
+  msgEl.textContent = message;
+  toastActionHandler = () => {
+    onUndo();
+    hideToast();
+  };
+  toast.hidden = false;
+  // Force a reflow so the transition runs on the first show.
+  void toast.offsetWidth;
+  toast.classList.add('visible');
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 5000);
+}
+
+function hideToast() {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+  clearTimeout(toastTimer);
+  toastTimer = null;
+  toastActionHandler = null;
+  toast.classList.remove('visible');
+  setTimeout(() => {
+    if (!toast.classList.contains('visible')) toast.hidden = true;
+  }, 200);
 }
 
 // === SAVE ===
@@ -815,6 +864,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Done -> home
   document.getElementById('btn-estimate-done').addEventListener('click', () => showView('home'));
+
+  // Toast undo action
+  document.getElementById('toast-action').addEventListener('click', () => {
+    if (toastActionHandler) toastActionHandler();
+  });
 
   // Init
   showView('home');
