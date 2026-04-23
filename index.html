@@ -23,12 +23,30 @@
         </div>
         <button id="btn-new-estimate" class="btn-accent">+ New</button>
       </header>
+      <div id="home-toolbar" class="home-toolbar">
+        <div class="home-search">
+          <input type="search" id="home-search-input" placeholder="&#128269; Search by name, vehicle, or notes...">
+        </div>
+        <div id="home-filter-chips" class="home-filter-chips">
+          <button class="filter-chip active" data-status="all">All</button>
+          <button class="filter-chip" data-status="draft">Draft</button>
+          <button class="filter-chip" data-status="shared">Shared</button>
+          <button class="filter-chip" data-status="approved">Approved</button>
+          <button class="filter-chip" data-status="declined">Declined</button>
+          <button class="filter-chip" data-status="deferred">Deferred</button>
+        </div>
+      </div>
       <div class="content">
         <div id="estimates-list"></div>
         <div id="estimates-empty" class="empty-state">
           <div class="empty-icon">&#128221;</div>
           <p>No estimates yet</p>
           <p class="empty-sub">Tap "+ New" to start one</p>
+        </div>
+        <div id="estimates-no-results" class="empty-state" style="display:none;">
+          <div class="empty-icon">&#128270;</div>
+          <p>No matches</p>
+          <p class="empty-sub">Try a different search or filter</p>
         </div>
       </div>
     </div>

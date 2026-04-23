@@ -23,7 +23,8 @@ const state = {
   sharedAt: null,
   status: 'draft',
   notes: '',
-  estimates: JSON.parse(localStorage.getItem('vm_estimates') || '[]')
+  estimates: JSON.parse(localStorage.getItem('vm_estimates') || '[]'),
+  homeFilter: { query: '', status: 'all' }
 };
 
 // === UTILS ===
@@ -51,25 +52,58 @@ function showView(name) {
 }
 
 // === HOME ===
+function buildVehicleString(v) {
+  return [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
+    .filter(Boolean).join(' ');
+}
+
+function matchesHomeFilter(est) {
+  const { query, status } = state.homeFilter;
+  if (status !== 'all' && (est.status || 'draft') !== status) return false;
+  if (!query) return true;
+  const haystack = [
+    est.customer.name,
+    est.customer.phone,
+    est.customer.email,
+    buildVehicleString(est.vehicle),
+    est.notes
+  ].filter(Boolean).join(' ').toLowerCase();
+  return haystack.includes(query);
+}
+
 function renderHome() {
   const list = document.getElementById('estimates-list');
   const empty = document.getElementById('estimates-empty');
+  const noResults = document.getElementById('estimates-no-results');
+  const toolbar = document.getElementById('home-toolbar');
 
   const visible = state.estimates.filter(e => e.status !== 'cancelled');
+
+  // Hide the search/filter toolbar entirely when there's nothing to search through.
+  if (toolbar) toolbar.style.display = visible.length === 0 ? 'none' : '';
+
   if (visible.length === 0) {
     list.innerHTML = '';
     empty.style.display = 'block';
+    noResults.style.display = 'none';
     return;
   }
   empty.style.display = 'none';
-  const sorted = visible.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+  const filtered = visible.filter(matchesHomeFilter);
+  if (filtered.length === 0) {
+    list.innerHTML = '';
+    noResults.style.display = 'block';
+    return;
+  }
+  noResults.style.display = 'none';
+
+  const sorted = filtered.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
   list.innerHTML = `
     <div class="home-section-label">Recent Estimates</div>
     ${sorted.map(est => {
-      const v = est.vehicle;
-      const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
-        .filter(Boolean).join(' ') || 'Vehicle not specified';
+      const vehicleStr = buildVehicleString(est.vehicle) || 'Vehicle not specified';
       const date = new Date(est.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const idAttr = esc(est.id);
       const status = est.status || 'draft';
@@ -571,6 +605,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Home
   document.getElementById('btn-new-estimate').addEventListener('click', startNew);
+
+  // Home search + status filter
+  const homeSearch = document.getElementById('home-search-input');
+  if (homeSearch) {
+    const onSearch = e => {
+      state.homeFilter.query = e.target.value.trim().toLowerCase();
+      renderHome();
+    };
+    homeSearch.addEventListener('input', onSearch);
+    homeSearch.addEventListener('search', onSearch);
+  }
+
+  const filterChips = document.getElementById('home-filter-chips');
+  if (filterChips) {
+    filterChips.addEventListener('click', e => {
+      const chip = e.target.closest('.filter-chip');
+      if (!chip) return;
+      state.homeFilter.status = chip.dataset.status;
+      filterChips.querySelectorAll('.filter-chip').forEach(c =>
+        c.classList.toggle('active', c === chip));
+      renderHome();
+    });
+  }
 
   const estList = document.getElementById('estimates-list');
 

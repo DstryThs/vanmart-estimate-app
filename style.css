@@ -612,3 +612,61 @@ body {
   color: var(--text-muted);
   font-size: 14px;
 }
+
+/* === HOME TOOLBAR (search + status filter chips) === */
+.home-toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: var(--header-h);
+  z-index: 90;
+  flex-shrink: 0;
+}
+
+.home-search { padding: 10px 16px 8px; }
+
+.home-search input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+  background: var(--bg);
+  outline: none;
+}
+
+.home-search input:focus { border-color: var(--selected-border); }
+
+.home-filter-chips {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-filter-chips::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  font-family: var(--font);
+}
+
+.filter-chip:active { opacity: 0.75; }
+
+.filter-chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
