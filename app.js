@@ -31,6 +31,12 @@ const fmt = n => (n > 0)
   ? '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   : '$0.00';
 
+// Escape user-supplied and catalog text before interpolating into HTML strings.
+// Customer names, vehicle fields, and product names contain &, ", ' which corrupt
+// rendering or open XSS holes when injected raw via innerHTML.
+const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ESC_MAP[c]);
+
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 const saveToStorage = () =>
@@ -65,24 +71,25 @@ function renderHome() {
       const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
         .filter(Boolean).join(' ') || 'Vehicle not specified';
       const date = new Date(est.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const idAttr = esc(est.id);
       const status = est.status || 'draft';
       const statusBadge = status !== 'draft'
-        ? `<span class="status-badge status-${status}">${status[0].toUpperCase() + status.slice(1)}</span>`
+        ? `<span class="status-badge status-${esc(status)}">${esc(status[0].toUpperCase() + status.slice(1))}</span>`
         : '';
       return `
-        <div class="estimate-card-row" data-id="${est.id}">
+        <div class="estimate-card-row" data-id="${idAttr}">
           <div class="estimate-card-actions">
-            <button class="card-action action-share" data-id="${est.id}" aria-label="Share estimate">Share</button>
-            <button class="card-action action-delete" data-id="${est.id}" aria-label="Delete estimate">Delete</button>
+            <button class="card-action action-share" data-id="${idAttr}" aria-label="Share estimate">Share</button>
+            <button class="card-action action-delete" data-id="${idAttr}" aria-label="Delete estimate">Delete</button>
           </div>
-          <div class="estimate-card" data-id="${est.id}">
+          <div class="estimate-card" data-id="${idAttr}">
             <div class="estimate-card-info">
               <div class="estimate-card-name-row">
-                <span class="estimate-card-name">${est.customer.name}</span>
+                <span class="estimate-card-name">${esc(est.customer.name)}</span>
                 ${statusBadge}
               </div>
-              <div class="estimate-card-vehicle">${vehicleStr}</div>
-              <div class="estimate-card-date">${date}</div>
+              <div class="estimate-card-vehicle">${esc(vehicleStr)}</div>
+              <div class="estimate-card-date">${esc(date)}</div>
             </div>
             <div class="estimate-card-right">
               <div class="estimate-card-total">${fmt(est.total)}</div>
@@ -164,11 +171,12 @@ function renderParts() {
   list.innerHTML = usedCategories.map(cat => {
     const items = products.filter(p => p.category === cat);
     const selectedInCat = items.filter(p => state.selected.has(p.id)).length;
+    const catAttr = esc(cat);
     return `
-      <div class="category-section" data-category="${cat}">
+      <div class="category-section" data-category="${catAttr}">
         <div class="category-header">
           <div class="category-header-left">
-            <span class="category-name">${cat}</span>
+            <span class="category-name">${catAttr}</span>
             <span class="category-badge ${selectedInCat > 0 ? 'visible' : ''}">${selectedInCat}</span>
           </div>
           <span class="category-chevron">&#9660;</span>
@@ -187,11 +195,11 @@ function renderPartRow(p) {
   const sel = state.selected.has(p.id);
   const price = p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA';
   return `
-    <div class="part-item ${sel ? 'selected' : ''}" data-part-id="${p.id}">
+    <div class="part-item ${sel ? 'selected' : ''}" data-part-id="${esc(p.id)}">
       <div class="part-checkbox">${sel ? '&#10003;' : ''}</div>
       <div class="part-info">
-        <div class="part-name">${p.name}</div>
-        ${p.notes ? `<div class="part-note">${p.notes}</div>` : ''}
+        <div class="part-name">${esc(p.name)}</div>
+        ${p.notes ? `<div class="part-note">${esc(p.notes)}</div>` : ''}
       </div>
       <div class="part-price">${price}</div>
     </div>
@@ -288,30 +296,30 @@ function renderEstimate() {
       <div class="estimate-section-label">Customer</div>
       <div class="estimate-row">
         <span class="estimate-row-label">Name</span>
-        <span class="estimate-row-value">${c.name}</span>
+        <span class="estimate-row-value">${esc(c.name)}</span>
       </div>
-      ${c.phone ? `<div class="estimate-row"><span class="estimate-row-label">Phone</span><span class="estimate-row-value">${c.phone}</span></div>` : ''}
-      ${c.email ? `<div class="estimate-row"><span class="estimate-row-label">Email</span><span class="estimate-row-value">${c.email}</span></div>` : ''}
+      ${c.phone ? `<div class="estimate-row"><span class="estimate-row-label">Phone</span><span class="estimate-row-value">${esc(c.phone)}</span></div>` : ''}
+      ${c.email ? `<div class="estimate-row"><span class="estimate-row-label">Email</span><span class="estimate-row-value">${esc(c.email)}</span></div>` : ''}
     </div>
 
     <div class="estimate-section">
       <div class="estimate-section-label">Vehicle</div>
       <div class="estimate-row">
         <span class="estimate-row-label">Vehicle</span>
-        <span class="estimate-row-value">${vehicleStr}</span>
+        <span class="estimate-row-value">${esc(vehicleStr)}</span>
       </div>
       <div class="estimate-row">
         <span class="estimate-row-label">Date</span>
-        <span class="estimate-row-value">${dateStr}</span>
+        <span class="estimate-row-value">${esc(dateStr)}</span>
       </div>
     </div>
 
     ${CATEGORIES.filter(cat => grouped[cat]).map(cat => `
       <div class="estimate-section">
-        <div class="estimate-section-label">${cat}</div>
+        <div class="estimate-section-label">${esc(cat)}</div>
         ${grouped[cat].map(p => `
           <div class="estimate-row">
-            <span class="estimate-row-label">${p.name}</span>
+            <span class="estimate-row-label">${esc(p.name)}</span>
             <span class="estimate-row-value price">${p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA'}</span>
           </div>
         `).join('')}
