@@ -323,7 +323,7 @@ function renderEstimate() {
 
   const html = `
     <div class="estimate-hero">
-      <div class="estimate-hero-brand">The Van Mart</div>
+      <div class="estimate-hero-brand">the van mart</div>
       <div class="estimate-hero-sub">Service Estimate</div>
     </div>
 
