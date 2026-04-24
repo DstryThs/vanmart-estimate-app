@@ -312,7 +312,8 @@ function renderEstimate() {
   const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
     .filter(Boolean).join(' ') || 'Not specified';
 
-  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const existingEst = state.currentId ? state.estimates.find(e => e.id === state.currentId) : null;
+  const dateStr = new Date(existingEst?.createdAt ?? Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const grouped = {};
   products.forEach(p => {
@@ -407,7 +408,7 @@ function shareEstimate(est) {
   const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
     .filter(Boolean).join(' ');
 
-  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const dateStr = new Date(est.createdAt ?? Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const grouped = {};
   products.forEach(p => {
