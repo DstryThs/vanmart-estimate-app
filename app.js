@@ -207,7 +207,7 @@ function renderParts() {
     const selectedInCat = items.filter(p => state.selected.has(p.id)).length;
     const catAttr = esc(cat);
     return `
-      <div class="category-section" data-category="${catAttr}">
+      <div class="category-section${selectedInCat > 0 ? ' open' : ''}" data-category="${catAttr}">
         <div class="category-header">
           <div class="category-header-left">
             <span class="category-name">${catAttr}</span>
@@ -312,7 +312,8 @@ function renderEstimate() {
   const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
     .filter(Boolean).join(' ') || 'Not specified';
 
-  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const existingEst = state.currentId ? state.estimates.find(e => e.id === state.currentId) : null;
+  const dateStr = new Date(existingEst?.createdAt ?? Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const grouped = {};
   products.forEach(p => {
@@ -407,7 +408,7 @@ function shareEstimate(est) {
   const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
     .filter(Boolean).join(' ');
 
-  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const dateStr = new Date(est.createdAt ?? Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const grouped = {};
   products.forEach(p => {
