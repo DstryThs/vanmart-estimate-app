@@ -339,7 +339,7 @@ function renderEstimate() {
 
   const html = `
     <div class="estimate-hero">
-      ${logoSVG(44)}
+      <img class="estimate-hero-logo" src="vanmart-llm-gen-logo.png" alt="The Van Mart">
       <div class="estimate-hero-brand">the van mart</div>
       <div class="estimate-hero-sub">Service Estimate</div>
     </div>
