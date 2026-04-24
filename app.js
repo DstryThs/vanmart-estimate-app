@@ -207,7 +207,7 @@ function renderParts() {
     const selectedInCat = items.filter(p => state.selected.has(p.id)).length;
     const catAttr = esc(cat);
     return `
-      <div class="category-section${selectedInCat > 0 ? ' open' : ''}" data-category="${catAttr}">
+      <div class="category-section" data-category="${catAttr}">
         <div class="category-header">
           <div class="category-header-left">
             <span class="category-name">${catAttr}</span>
