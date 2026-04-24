@@ -392,17 +392,17 @@ body {
 
 /* === ESTIMATE VIEW === */
 .estimate-hero {
-  background: var(--primary);
-  color: #fff;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 14px;
   text-align: center;
 }
 
-.estimate-hero svg { display: block; margin: 0 auto 10px; }
-.estimate-hero-brand { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
-.estimate-hero-sub { font-size: 12px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
+.estimate-hero-logo { width: 72px; height: auto; display: block; margin: 0 auto 10px; }
+.estimate-hero-brand { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: var(--primary); }
+.estimate-hero-sub { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
 
 .estimate-section {
   background: var(--surface);
