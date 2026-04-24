@@ -130,6 +130,7 @@ function renderHome() {
         <div class="estimate-card-row" data-id="${idAttr}">
           <div class="estimate-card-actions">
             <button class="card-action action-share" data-id="${idAttr}" aria-label="Share estimate">Share</button>
+            <button class="card-action action-copy" data-id="${idAttr}" aria-label="Duplicate estimate">Copy</button>
             <button class="card-action action-delete" data-id="${idAttr}" aria-label="Delete estimate">Delete</button>
           </div>
           <div class="estimate-card" data-id="${idAttr}">
@@ -178,6 +179,30 @@ function loadEstimate(id) {
   state.status = est.status || 'draft';
   state.notes = est.notes || '';
 
+  populateCustomerForm(est);
+  showView('customer');
+}
+
+// Copies customer/vehicle/parts from an existing estimate into a fresh draft.
+// Clears id/sharedAt/status/notes so saving creates a new record rather than
+// overwriting the source.
+function duplicateEstimate(id) {
+  const src = state.estimates.find(e => e.id === id);
+  if (!src) return;
+
+  state.currentId = null;
+  state.customer = { ...src.customer };
+  state.vehicle = { ...src.vehicle };
+  state.selected = new Set(src.selectedParts);
+  state.sharedAt = null;
+  state.status = 'draft';
+  state.notes = '';
+
+  populateCustomerForm(src);
+  showView('customer');
+}
+
+function populateCustomerForm(est) {
   document.getElementById('customer-name').value = est.customer.name || '';
   document.getElementById('customer-phone').value = est.customer.phone || '';
   document.getElementById('customer-email').value = est.customer.email || '';
@@ -188,8 +213,6 @@ function loadEstimate(id) {
   const wb = est.vehicle.wheelbase || 'both';
   const wbEl = document.querySelector(`input[name="wheelbase"][value="${wb}"]`);
   if (wbEl) wbEl.checked = true;
-
-  showView('customer');
 }
 
 // === PARTS ===
@@ -707,6 +730,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (action.classList.contains('action-share')) {
         shareEstimate(est);
         closeAllRows();
+      } else if (action.classList.contains('action-copy')) {
+        closeAllRows();
+        duplicateEstimate(id);
       } else if (action.classList.contains('action-delete')) {
         deleteEstimate(id);
       }
@@ -726,8 +752,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (card) loadEstimate(card.dataset.id);
   });
 
-  // Swipe-to-reveal (Apple Notes style: swipe left -> Share + Delete)
-  const ACTION_WIDTH = 160;
+  // Swipe-to-reveal (Apple Notes style: swipe left -> Share + Copy + Delete)
+  const ACTION_WIDTH = 240;
   let swipe = null;
 
   function closeAllRows() {

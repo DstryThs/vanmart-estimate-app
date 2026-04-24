@@ -493,7 +493,7 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 160px;
+  width: 240px;
   display: flex;
 }
 
@@ -510,6 +510,7 @@ body {
 
 .card-action:active { opacity: 0.85; }
 .action-share { background: var(--selected-border); }
+.action-copy { background: var(--accent); }
 .action-delete { background: var(--danger); }
 
 .estimate-card {
@@ -529,7 +530,7 @@ body {
 }
 
 .estimate-card-row.open .estimate-card {
-  transform: translateX(-160px);
+  transform: translateX(-240px);
 }
 
 .estimate-card:active { background: #F8F5F0; }
