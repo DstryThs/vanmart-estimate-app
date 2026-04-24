@@ -2,22 +2,22 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --primary: #1B2B5A;
-  --accent: #C9973A;
-  --accent-hover: #b5862f;
-  --bg: #F0F2F5;
+  --primary: #5F7D45;
+  --accent: #C96B1A;
+  --accent-hover: #b05a14;
+  --bg: #F2EEE8;
   --surface: #FFFFFF;
   --text: #1A1A1A;
   --text-muted: #6B7280;
-  --border: #E5E7EB;
-  --selected-bg: #EEF4FF;
-  --selected-border: #3B6FD4;
+  --border: #E2DDD6;
+  --selected-bg: #EEF3E8;
+  --selected-border: #5F7D45;
   --danger: #DC2626;
   --header-h: 56px;
   --search-h: 58px;
   --footer-h: 72px;
   --radius: 12px;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 html { -webkit-text-size-adjust: 100%; }
@@ -59,8 +59,10 @@ body {
   line-height: 1.2;
 }
 
-.header-brand { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.header-brand { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
 .header-sub { font-size: 11px; opacity: 0.65; font-weight: 400; letter-spacing: 0.04em; text-transform: uppercase; }
+
+.header-logo { flex-shrink: 0; }
 
 .btn-back {
   background: rgba(255,255,255,0.12);
@@ -398,6 +400,7 @@ body {
   text-align: center;
 }
 
+.estimate-hero svg { display: block; margin: 0 auto 10px; }
 .estimate-hero-brand { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
 .estimate-hero-sub { font-size: 12px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
 
@@ -469,7 +472,7 @@ body {
 
 .internal-section {
   border: 1px dashed var(--border);
-  background: #FAFBFC;
+  background: #FAFAF7;
   margin-top: 6px;
 }
 
@@ -529,7 +532,7 @@ body {
   transform: translateX(-160px);
 }
 
-.estimate-card:active { background: #FAFBFD; }
+.estimate-card:active { background: #F8F5F0; }
 
 .estimate-card-info { flex: 1; min-width: 0; }
 .estimate-card-name-row {

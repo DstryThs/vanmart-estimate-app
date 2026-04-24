@@ -14,6 +14,22 @@ const FOLLOWUP_HOURS = 48;
 
 const STATUS_VALUES = ['draft', 'shared', 'approved', 'declined', 'deferred', 'cancelled'];
 
+// Brand logo mark — 2×2 grid icon (sun, waves, mountain, pine tree).
+// Pass size for width/height; color defaults to white for use on green backgrounds.
+function logoSVG(size = 28, color = 'white') {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="1.5" y="1.5" width="29" height="29" rx="5.5" stroke="${color}" stroke-width="2"/>
+    <line x1="16" y1="1.5" x2="16" y2="30.5" stroke="${color}" stroke-width="1.5"/>
+    <line x1="1.5" y1="16" x2="30.5" y2="16" stroke="${color}" stroke-width="1.5"/>
+    <circle cx="8.75" cy="8.75" r="3" stroke="${color}" stroke-width="1.8"/>
+    <path d="M18.5 7 Q20 5.5 21.5 7 Q23 8.5 24.5 7" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M18.5 10.5 Q20 9 21.5 10.5 Q23 12 24.5 10.5" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M3 29.5 L8.75 20 L14.5 29.5Z" fill="${color}"/>
+    <path d="M18.5 28 L23.5 19.5 L28.5 28Z" fill="${color}"/>
+    <rect x="22.3" y="28" width="2.4" height="2" rx="0.4" fill="${color}"/>
+  </svg>`;
+}
+
 // === STATE ===
 const state = {
   currentId: null,
@@ -323,7 +339,8 @@ function renderEstimate() {
 
   const html = `
     <div class="estimate-hero">
-      <div class="estimate-hero-brand">The Van Mart</div>
+      ${logoSVG(44)}
+      <div class="estimate-hero-brand">the van mart</div>
       <div class="estimate-hero-sub">Service Estimate</div>
     </div>
 
