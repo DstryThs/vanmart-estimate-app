@@ -84,14 +84,17 @@
             <div class="form-group">
               <label for="customer-name">Name <span class="required">*</span></label>
               <input type="text" id="customer-name" autocomplete="name" placeholder="Full name" required>
+              <div class="field-error" id="error-customer-name" hidden></div>
             </div>
             <div class="form-group">
               <label for="customer-phone">Phone</label>
-              <input type="tel" id="customer-phone" autocomplete="tel" placeholder="555-555-5555">
+              <input type="tel" id="customer-phone" autocomplete="tel" placeholder="555-555-5555" inputmode="tel" maxlength="20">
+              <div class="field-error" id="error-customer-phone" hidden></div>
             </div>
             <div class="form-group">
               <label for="customer-email">Email</label>
-              <input type="email" id="customer-email" autocomplete="email" placeholder="email@example.com">
+              <input type="email" id="customer-email" autocomplete="email" placeholder="email@example.com" autocapitalize="off" spellcheck="false">
+              <div class="field-error" id="error-customer-email" hidden></div>
             </div>
           </section>
 
@@ -101,6 +104,7 @@
               <div class="form-group">
                 <label for="vehicle-year">Year</label>
                 <input type="text" id="vehicle-year" placeholder="2024" inputmode="numeric" maxlength="4">
+                <div class="field-error" id="error-vehicle-year" hidden></div>
               </div>
               <div class="form-group">
                 <label for="vehicle-make">Make</label>

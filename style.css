@@ -200,7 +200,29 @@ body {
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus { border-color: var(--selected-border); background: #fff; }
-.form-group input.error { border-color: var(--danger); }
+
+.form-group input.error {
+  border-color: var(--danger);
+  background: #FEF2F2;
+  animation: field-shake 0.32s cubic-bezier(.36,.07,.19,.97);
+}
+
+.form-group input.error:focus { background: #fff; }
+
+.field-error {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--danger);
+  margin-top: 5px;
+  line-height: 1.3;
+}
+
+@keyframes field-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-3px); }
+  40%, 60% { transform: translateX(3px); }
+}
 
 .radio-group {
   display: flex;

@@ -56,6 +56,65 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ESC_MAP[c]);
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
+// Email regex chosen for usability over RFC strictness: rejects obvious typos
+// (missing @, missing TLD, internal whitespace) without flagging valid odd cases.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const isValidEmail = s => EMAIL_RE.test(s.trim());
+
+// Phone is normalized to digits before validating. Accepts 10-digit US/CA
+// numbers or 11 digits when prefixed with country code 1.
+const phoneDigits = s => String(s || '').replace(/\D/g, '');
+function isValidPhone(s) {
+  const d = phoneDigits(s);
+  return d.length === 10 || (d.length === 11 && d[0] === '1');
+}
+
+// Format on input: progressively apply 555-555-5555 (or 1-555-555-5555) so the
+// user sees the canonical shape as they type. Caret is left at the end since
+// users rarely edit mid-string on mobile.
+function formatPhone(s) {
+  const d = phoneDigits(s).slice(0, 11);
+  if (d.length === 0) return '';
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  if (d.length <= 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return `${d[0]}-${d.slice(1, 4)}-${d.slice(4, 7)}-${d.slice(7)}`;
+}
+
+const CURRENT_YEAR = new Date().getFullYear();
+function isValidYear(s) {
+  if (!s) return true;
+  if (!/^\d{4}$/.test(s)) return false;
+  const y = +s;
+  return y >= 1950 && y <= CURRENT_YEAR + 2;
+}
+
+function setFieldError(inputId, message) {
+  const input = document.getElementById(inputId);
+  const err = document.getElementById('error-' + inputId);
+  if (!input) return;
+  if (message) {
+    input.classList.add('error');
+    input.setAttribute('aria-invalid', 'true');
+    if (err) {
+      err.textContent = message;
+      err.hidden = false;
+    }
+  } else {
+    input.classList.remove('error');
+    input.removeAttribute('aria-invalid');
+    if (err) {
+      err.textContent = '';
+      err.hidden = true;
+    }
+  }
+}
+
+function clearAllFieldErrors() {
+  ['customer-name', 'customer-phone', 'customer-email', 'vehicle-year']
+    .forEach(id => setFieldError(id, ''));
+}
+
 const saveToStorage = () =>
   localStorage.setItem('vm_estimates', JSON.stringify(state.estimates));
 
@@ -164,6 +223,7 @@ function startNew() {
   state.notes = '';
   document.getElementById('form-customer').reset();
   document.querySelector('input[name="wheelbase"][value="both"]').checked = true;
+  clearAllFieldErrors();
   showView('customer');
 }
 
@@ -204,7 +264,7 @@ function duplicateEstimate(id) {
 
 function populateCustomerForm(est) {
   document.getElementById('customer-name').value = est.customer.name || '';
-  document.getElementById('customer-phone').value = est.customer.phone || '';
+  document.getElementById('customer-phone').value = formatPhone(est.customer.phone || '');
   document.getElementById('customer-email').value = est.customer.email || '';
   document.getElementById('vehicle-year').value = est.vehicle.year || '';
   document.getElementById('vehicle-make').value = est.vehicle.make || '';
@@ -213,6 +273,8 @@ function populateCustomerForm(est) {
   const wb = est.vehicle.wheelbase || 'both';
   const wbEl = document.querySelector(`input[name="wheelbase"][value="${wb}"]`);
   if (wbEl) wbEl.checked = true;
+
+  clearAllFieldErrors();
 }
 
 // === PARTS ===
@@ -831,23 +893,54 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Customer form
+  const phoneInput = document.getElementById('customer-phone');
+  phoneInput.addEventListener('input', e => {
+    e.target.value = formatPhone(e.target.value);
+    if (e.target.classList.contains('error')) setFieldError('customer-phone', '');
+  });
+
+  // Clear inline error as soon as the user starts correcting the field.
+  ['customer-name', 'customer-email', 'vehicle-year'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => {
+      if (el.classList.contains('error')) setFieldError(id, '');
+    });
+  });
+
   document.getElementById('form-customer').addEventListener('submit', e => {
     e.preventDefault();
+    clearAllFieldErrors();
+
     const name = document.getElementById('customer-name').value.trim();
-    if (!name) {
-      document.getElementById('customer-name').classList.add('error');
-      document.getElementById('customer-name').focus();
+    const phone = document.getElementById('customer-phone').value.trim();
+    const email = document.getElementById('customer-email').value.trim();
+    const year = document.getElementById('vehicle-year').value.trim();
+
+    let firstInvalid = null;
+    const fail = (id, msg) => {
+      setFieldError(id, msg);
+      if (!firstInvalid) firstInvalid = id;
+    };
+
+    if (!name) fail('customer-name', 'Name is required');
+    if (phone && !isValidPhone(phone)) fail('customer-phone', 'Enter a 10-digit phone number');
+    if (email && !isValidEmail(email)) fail('customer-email', 'Enter a valid email address');
+    if (year && !isValidYear(year)) fail('vehicle-year', `Year must be 1950–${CURRENT_YEAR + 2}`);
+
+    if (firstInvalid) {
+      const el = document.getElementById(firstInvalid);
+      el.focus();
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
     }
-    document.getElementById('customer-name').classList.remove('error');
 
     state.customer = {
       name,
-      phone: document.getElementById('customer-phone').value.trim(),
-      email: document.getElementById('customer-email').value.trim()
+      phone: phone ? formatPhone(phone) : '',
+      email: email.toLowerCase()
     };
     state.vehicle = {
-      year: document.getElementById('vehicle-year').value.trim(),
+      year,
       make: document.getElementById('vehicle-make').value.trim(),
       model: document.getElementById('vehicle-model').value.trim(),
       wheelbase: document.querySelector('input[name="wheelbase"]:checked')?.value || 'both'
