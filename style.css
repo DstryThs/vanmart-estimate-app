@@ -448,6 +448,22 @@ body {
 
 .estimate-row-value.price { color: var(--primary); }
 
+.subtotal-row {
+  border-top: 1.5px solid var(--border);
+  border-bottom: none !important;
+  margin-top: 4px;
+  padding-top: 9px;
+}
+.subtotal-row .estimate-row-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.subtotal-row .estimate-row-value { font-weight: 800; }
+.poa-mark { color: var(--text-muted); margin-left: 2px; font-weight: 600; }
+
 .estimate-total-block {
   background: var(--primary);
   color: #fff;
