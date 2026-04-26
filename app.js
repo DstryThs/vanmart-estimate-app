@@ -451,17 +451,28 @@ function renderEstimate() {
       </div>
     </div>
 
-    ${CATEGORIES.filter(cat => grouped[cat]).map(cat => `
+    ${CATEGORIES.filter(cat => grouped[cat]).map(cat => {
+      const items = grouped[cat];
+      const subtotal = items.reduce((s, p) => s + p.installedPrice, 0);
+      const hasPOA = items.some(p => p.installedPrice <= 0);
+      const showSubtotal = items.length > 1;
+      return `
       <div class="estimate-section">
         <div class="estimate-section-label">${esc(cat)}</div>
-        ${grouped[cat].map(p => `
+        ${items.map(p => `
           <div class="estimate-row">
             <span class="estimate-row-label">${esc(p.name)}</span>
             <span class="estimate-row-value price">${p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA'}</span>
           </div>
         `).join('')}
+        ${showSubtotal ? `
+          <div class="estimate-row subtotal-row">
+            <span class="estimate-row-label">Subtotal${hasPOA ? '<span class="poa-mark">*</span>' : ''}</span>
+            <span class="estimate-row-value price">${fmt(subtotal)}</span>
+          </div>
+        ` : ''}
       </div>
-    `).join('')}
+    `;}).join('')}
 
     <div class="estimate-total-block">
       <span class="estimate-total-label">Estimated Total</span>
@@ -470,7 +481,7 @@ function renderEstimate() {
 
     <p class="estimate-disclaimer">
       This is an estimate only. Final pricing subject to vehicle inspection and part availability.
-      Installed prices include parts and labor.
+      Installed prices include parts and labor. POA items are quoted separately and excluded from totals.
     </p>
 
     ${state.currentId ? `
@@ -528,14 +539,22 @@ function shareEstimate(est) {
     c.phone ? `Phone: ${c.phone}` : null,
     c.email ? `Email: ${c.email}` : null,
     '',
-    ...CATEGORIES.filter(cat => grouped[cat]).flatMap(cat => [
-      `[ ${cat.toUpperCase()} ]`,
-      ...grouped[cat].map(p => `  ${p.name}: ${p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA'}`),
-      ''
-    ]),
+    ...CATEGORIES.filter(cat => grouped[cat]).flatMap(cat => {
+      const items = grouped[cat];
+      const subtotal = items.reduce((s, p) => s + p.installedPrice, 0);
+      const hasPOA = items.some(p => p.installedPrice <= 0);
+      const out = [
+        `[ ${cat.toUpperCase()} ]`,
+        ...items.map(p => `  ${p.name}: ${p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA'}`)
+      ];
+      if (items.length > 1) out.push(`  Subtotal${hasPOA ? '*' : ''}: ${fmt(subtotal)}`);
+      out.push('');
+      return out;
+    }),
     `ESTIMATED TOTAL: ${fmt(total)}`,
     '',
-    'This is an estimate only. Final pricing subject to vehicle inspection and part availability.'
+    'This is an estimate only. Final pricing subject to vehicle inspection and part availability.',
+    'POA items are quoted separately and excluded from totals.'
   ].filter(l => l !== null).join('\n');
 
   markShared(est.id);
