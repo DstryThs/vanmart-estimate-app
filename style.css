@@ -275,7 +275,7 @@ body {
   cursor: pointer;
   user-select: none;
   position: sticky;
-  top: calc(var(--header-h) + var(--search-h));
+  top: 0;
   z-index: 80;
   border-bottom: 1px solid var(--border);
   gap: 8px;
