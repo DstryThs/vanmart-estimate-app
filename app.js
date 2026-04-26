@@ -222,7 +222,7 @@ function startNew() {
   state.status = 'draft';
   state.notes = '';
   document.getElementById('form-customer').reset();
-  document.querySelector('input[name="wheelbase"][value="both"]').checked = true;
+  document.querySelector('input[name="wheelbase"][value="144"]').checked = true;
   clearAllFieldErrors();
   showView('customer');
 }
