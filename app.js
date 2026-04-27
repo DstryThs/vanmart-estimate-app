@@ -120,6 +120,7 @@ const saveToStorage = () =>
 
 // === NAVIGATION ===
 function showView(name) {
+  if (name !== 'parts') closeSelectedSheet({ animate: false });
   if (name === 'home') renderHome();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
@@ -293,6 +294,7 @@ function getVisibleProducts() {
 }
 
 function renderParts() {
+  closeSelectedSheet({ animate: false });
   const products = getVisibleProducts();
   const list = document.getElementById('parts-list');
 
@@ -350,6 +352,11 @@ function togglePart(id) {
 
   updateCategoryBadge(id);
   updateFooter();
+
+  if (isSelectedSheetOpen()) {
+    if (state.selected.size === 0) closeSelectedSheet();
+    else renderSelectedSheet();
+  }
 }
 
 function updateCategoryBadge(id) {
@@ -376,6 +383,75 @@ function updateFooter() {
     count === 0 ? '0 items selected' : `${count} item${count !== 1 ? 's' : ''} selected`;
   document.getElementById('selected-total').textContent = fmt(total);
   document.getElementById('btn-view-estimate').disabled = count === 0;
+
+  const summary = document.getElementById('footer-summary');
+  if (summary) summary.setAttribute('aria-disabled', count === 0 ? 'true' : 'false');
+}
+
+// === SELECTED ITEMS SHEET (parts view) ===
+function renderSelectedSheet() {
+  const content = document.getElementById('selected-sheet-content');
+  if (!content) return;
+
+  const products = getSelectedProducts();
+  const grouped = {};
+  products.forEach(p => {
+    if (!grouped[p.category]) grouped[p.category] = [];
+    grouped[p.category].push(p);
+  });
+
+  content.innerHTML = CATEGORIES.filter(cat => grouped[cat]).map(cat => `
+    <div class="selected-sheet-category">${esc(cat)}</div>
+    ${grouped[cat].map(p => `
+      <div class="selected-sheet-row">
+        <span class="selected-sheet-name">${esc(p.name)}</span>
+        <span class="selected-sheet-price">${p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA'}</span>
+        <button class="selected-sheet-remove" type="button" data-part-id="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">&times;</button>
+      </div>
+    `).join('')}
+  `).join('');
+}
+
+function isSelectedSheetOpen() {
+  const sheet = document.getElementById('selected-sheet');
+  return !!(sheet && sheet.classList.contains('open'));
+}
+
+function openSelectedSheet() {
+  const sheet = document.getElementById('selected-sheet');
+  const summary = document.getElementById('footer-summary');
+  if (!sheet) return;
+  renderSelectedSheet();
+  sheet.hidden = false;
+  sheet.setAttribute('aria-hidden', 'false');
+  // Force reflow so the transition runs the first time it opens.
+  void sheet.offsetWidth;
+  sheet.classList.add('open');
+  if (summary) summary.setAttribute('aria-expanded', 'true');
+}
+
+let selectedSheetHideTimer = null;
+function closeSelectedSheet({ animate = true } = {}) {
+  const sheet = document.getElementById('selected-sheet');
+  const summary = document.getElementById('footer-summary');
+  if (!sheet) return;
+  clearTimeout(selectedSheetHideTimer);
+  sheet.classList.remove('open');
+  sheet.setAttribute('aria-hidden', 'true');
+  if (summary) summary.setAttribute('aria-expanded', 'false');
+  if (!animate) {
+    sheet.hidden = true;
+    return;
+  }
+  selectedSheetHideTimer = setTimeout(() => {
+    if (!sheet.classList.contains('open')) sheet.hidden = true;
+  }, 240);
+}
+
+function toggleSelectedSheet() {
+  if (state.selected.size === 0) return;
+  if (isSelectedSheetOpen()) closeSelectedSheet();
+  else openSelectedSheet();
 }
 
 function filterParts(query) {
@@ -989,8 +1065,30 @@ document.addEventListener('DOMContentLoaded', () => {
     filterParts(e.target.value);
   });
 
+  // Selected-items sheet (parts view)
+  const footerSummary = document.getElementById('footer-summary');
+  if (footerSummary) {
+    footerSummary.addEventListener('click', toggleSelectedSheet);
+    footerSummary.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleSelectedSheet();
+      }
+    });
+  }
+  const sheetClose = document.getElementById('selected-sheet-close');
+  if (sheetClose) sheetClose.addEventListener('click', () => closeSelectedSheet());
+  const sheetContent = document.getElementById('selected-sheet-content');
+  if (sheetContent) {
+    sheetContent.addEventListener('click', e => {
+      const remove = e.target.closest('.selected-sheet-remove');
+      if (remove) togglePart(remove.dataset.partId);
+    });
+  }
+
   // View estimate
   document.getElementById('btn-view-estimate').addEventListener('click', () => {
+    closeSelectedSheet({ animate: false });
     renderEstimate();
     showView('estimate');
   });
