@@ -153,10 +153,20 @@
         <input type="search" id="parts-search" placeholder="&#128269; Search parts...">
       </div>
       <div class="content content-parts" id="parts-list"></div>
+      <div id="selected-sheet" class="selected-sheet" hidden aria-hidden="true">
+        <div class="selected-sheet-header">
+          <span class="selected-sheet-title">Selected items</span>
+          <button id="selected-sheet-close" class="selected-sheet-close" type="button" aria-label="Close selected items">&times;</button>
+        </div>
+        <div id="selected-sheet-content" class="selected-sheet-content"></div>
+      </div>
       <div class="sticky-footer">
-        <div class="footer-summary">
-          <span id="selected-count" class="footer-count">0 items</span>
-          <span id="selected-total" class="footer-total">$0.00</span>
+        <div id="footer-summary" class="footer-summary" role="button" tabindex="0" aria-expanded="false" aria-controls="selected-sheet">
+          <div class="footer-summary-text">
+            <span id="selected-count" class="footer-count">0 items</span>
+            <span id="selected-total" class="footer-total">$0.00</span>
+          </div>
+          <span class="footer-chevron" aria-hidden="true">&#9650;</span>
         </div>
         <button id="btn-view-estimate" class="btn-primary" disabled>View Estimate</button>
       </div>
