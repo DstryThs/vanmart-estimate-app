@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#5F7D45">
+  <title>Your Estimate — The Van Mart</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #5F7D45;
+      --accent: #C96B1A;
+      --bg: #F2EEE8;
+      --surface: #FFFFFF;
+      --text: #1A1A1A;
+      --text-muted: #6B7280;
+      --border: #E2DDD6;
+      --selected-bg: #EEF3E8;
+      --selected-border: #5F7D45;
+      --danger: #DC2626;
+      --header-h: 56px;
+      --radius: 12px;
+      --font: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      max-width: 640px;
+      margin: 0 auto;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* === HEADER === */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--primary);
+      color: #fff;
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+
+    .header-title { flex: 1; display: flex; flex-direction: column; line-height: 1.2; }
+    .header-brand { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+    .header-sub { font-size: 11px; opacity: 0.65; font-weight: 400; letter-spacing: 0.04em; text-transform: uppercase; }
+
+    /* === LOADING / ERROR STATES === */
+    #loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-size: 15px;
+      color: var(--text-muted);
+    }
+
+    #error {
+      display: none;
+      text-align: center;
+      padding: 80px 24px 40px;
+    }
+
+    #error .error-icon { font-size: 48px; margin-bottom: 16px; }
+    #error p { font-size: 16px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; }
+
+    /* === CONTENT === */
+    .content {
+      padding: 16px;
+      padding-bottom: 40px;
+    }
+
+    /* === BUTTONS === */
+    .btn-primary, .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 20px;
+      height: 50px;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+      font-family: var(--font);
+      width: 100%;
+    }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:active { opacity: 0.85; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+    }
+    .btn-secondary:active { opacity: 0.75; }
+
+    .btn-link {
+      background: none;
+      border: none;
+      color: var(--primary);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    .cta-stack { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 16px; }
+
+    /* === ESTIMATE SECTIONS === */
+    .estimate-hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+
+    .estimate-hero-logo { width: 72px; height: auto; display: block; margin: 0 auto 10px; }
+    .estimate-hero-brand { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: var(--primary); }
+    .estimate-hero-sub { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; }
+    .estimate-hero-date { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
+
+    .estimate-section {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+
+    .estimate-section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .estimate-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+
+    .estimate-row:last-child { border-bottom: none; }
+
+    .estimate-row-label { font-size: 14px; color: var(--text); flex: 1; line-height: 1.3; }
+    .estimate-row-value { font-size: 14px; font-weight: 600; color: var(--text); text-align: right; flex-shrink: 0; }
+
+    /* === PARTS LIST === */
+    .parts-instructions {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      line-height: 1.45;
+    }
+
+    .part-row {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .part-row:last-child { border-bottom: none; }
+
+    .part-row.removed {
+      opacity: 0.38;
+    }
+
+    .part-row.removed .part-row-name {
+      text-decoration: line-through;
+    }
+
+    /* Hide native checkbox, use custom indicator */
+    .part-row input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: var(--bg);
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .part-row input[type="checkbox"]:checked {
+      background: var(--selected-border);
+      border-color: var(--selected-border);
+    }
+
+    .part-row input[type="checkbox"]:checked::after {
+      content: '';
+      display: block;
+      width: 5px;
+      height: 9px;
+      border: 2px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translate(-1px, -1px);
+      position: absolute;
+    }
+
+    .part-row-info { flex: 1; min-width: 0; }
+
+    .part-row-name {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.35;
+      color: var(--text);
+    }
+
+    .part-row-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+
+    .part-row-price {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .part-row.removed .part-row-price { color: var(--text-muted); }
+
+    /* === TOTAL === */
+    .estimate-total-block {
+      background: var(--primary);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      transition: background 0.2s;
+    }
+
+    .estimate-total-label { font-size: 15px; font-weight: 600; opacity: 0.85; }
+    .estimate-total-value { font-size: 26px; font-weight: 800; }
+
+    /* === NOTES TEXTAREA === */
+    .notes-textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 9px;
+      font-size: 16px;
+      background: var(--bg);
+      outline: none;
+      color: var(--text);
+      font-family: var(--font);
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.4;
+    }
+
+    .notes-textarea:focus { border-color: var(--selected-border); background: #fff; }
+
+    /* === DISCLAIMER === */
+    .estimate-disclaimer {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 4px 8px 12px;
+      line-height: 1.5;
+    }
+
+    /* === CONTACT FALLBACK === */
+    .contact-fallback {
+      text-align: center;
+      padding: 16px 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .contact-fallback a {
+      color: var(--primary);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .contact-links { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+  <div id="loading">Loading your estimate&hellip;</div>
+
+  <div id="error">
+    <div class="error-icon">&#9888;&#65039;</div>
+    <p id="error-message">This link appears to be invalid or expired.<br>Please contact The Van Mart for your estimate.</p>
+    <a href="mailto:mikec@thevanmart.com" class="btn-link">mikec@thevanmart.com</a>
+  </div>
+
+  <div id="estimate-view" style="display:none;">
+
+    <header class="header">
+      <div style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;">
+        <img src="vanmart-llm-gen-logo.png" alt="The Van Mart" width="26" height="26" style="display:block;object-fit:contain;">
+      </div>
+      <div class="header-title">
+        <span class="header-brand">the van mart</span>
+        <span class="header-sub">Your Estimate</span>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- HERO -->
+      <div class="estimate-hero">
+        <img class="estimate-hero-logo" src="vanmart-llm-gen-logo.png" alt="The Van Mart">
+        <div class="estimate-hero-brand">the van mart</div>
+        <div class="estimate-hero-sub">Service Estimate</div>
+        <div class="estimate-hero-date" id="estimate-date"></div>
+      </div>
+
+      <!-- CUSTOMER -->
+      <div class="estimate-section" id="customer-section"></div>
+
+      <!-- VEHICLE -->
+      <div class="estimate-section" id="vehicle-section"></div>
+
+      <!-- PARTS -->
+      <div class="estimate-section">
+        <div class="estimate-section-label">Your Quote</div>
+        <p class="parts-instructions">Uncheck any items you&rsquo;d like to remove, then tap a button below.</p>
+        <div id="parts-list"></div>
+      </div>
+
+      <!-- LIVE TOTAL -->
+      <div class="estimate-total-block">
+        <span class="estimate-total-label">Estimated Total</span>
+        <span class="estimate-total-value" id="running-total">$0.00</span>
+      </div>
+
+      <!-- NOTES -->
+      <div class="estimate-section">
+        <div class="estimate-section-label">Want to add something?</div>
+        <textarea id="customer-notes" class="notes-textarea" rows="3"
+          placeholder="Describe anything else you&rsquo;d like &mdash; we&rsquo;ll follow up with pricing."></textarea>
+      </div>
+
+      <!-- DISCLAIMER -->
+      <p class="estimate-disclaimer">
+        This is an estimate only. Final pricing subject to vehicle inspection and part availability. Installed prices include parts and labor.
+      </p>
+
+      <!-- CTA BUTTONS -->
+      <div class="cta-stack">
+        <button id="btn-approve" class="btn-primary">&#10003;&nbsp; Looks Good &mdash; Send Approval</button>
+        <button id="btn-changes" class="btn-secondary">&#9998;&nbsp; Request Changes</button>
+      </div>
+
+      <!-- CONTACT FALLBACK -->
+      <div class="contact-fallback" id="contact-fallback" style="display:none;">
+        <p>Questions? Reach us directly:</p>
+        <div class="contact-links" id="contact-links"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="data/pricing.js"></script>
+  <script>
+    'use strict';
+
+    const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ESC_MAP[c]);
+    const fmt = n => (n > 0)
+      ? '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : '$0.00';
+
+    function decodeHash(hash) {
+      if (!hash || hash.length < 2) return null;
+      try {
+        const b64url = hash.slice(1);
+        const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+        const missing = b64.length % 4;
+        const padded = missing ? b64 + '='.repeat(4 - missing) : b64;
+        const bytes = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+        return JSON.parse(new TextDecoder().decode(bytes));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getCurrentTotal() {
+      let total = 0;
+      document.querySelectorAll('#parts-list input[type="checkbox"]').forEach(cb => {
+        if (cb.checked) total += Number(cb.dataset.price) || 0;
+      });
+      return total;
+    }
+
+    function updateTotal() {
+      document.getElementById('running-total').textContent = fmt(getCurrentTotal());
+    }
+
+    function openContactAction(phone, email, subject, body) {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      if (phone && isMobile) {
+        // ?& works on both iOS (uses ; separator) and Android
+        window.location.href = 'sms:' + phone.replace(/\D/g, '') + '?&body=' + encodeURIComponent(body);
+        return;
+      }
+
+      if (email) {
+        window.location.href = 'mailto:' + email
+          + '?subject=' + encodeURIComponent(subject)
+          + '&body=' + encodeURIComponent(body);
+        return;
+      }
+
+      // No contact info — show fallback and copy to clipboard
+      document.getElementById('contact-fallback').style.display = '';
+      document.getElementById('contact-fallback').scrollIntoView({ behavior: 'smooth' });
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(body).then(() => {
+          alert('Message copied to clipboard. Please paste it in a text or email to The Van Mart.');
+        });
+      }
+    }
+
+    function renderPage(payload) {
+      const c = payload.customer || {};
+      const v = payload.vehicle || {};
+
+      // Date
+      const dateStr = payload.createdAt
+        ? new Date(payload.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+        : '';
+      document.getElementById('estimate-date').textContent = dateStr ? 'Prepared ' + dateStr : '';
+
+      // Customer section
+      const customerRows = [
+        c.name ? `<div class="estimate-row"><span class="estimate-row-label">Name</span><span class="estimate-row-value">${esc(c.name)}</span></div>` : '',
+        c.phone ? `<div class="estimate-row"><span class="estimate-row-label">Phone</span><span class="estimate-row-value">${esc(c.phone)}</span></div>` : '',
+        c.email ? `<div class="estimate-row"><span class="estimate-row-label">Email</span><span class="estimate-row-value">${esc(c.email)}</span></div>` : '',
+      ].filter(Boolean).join('');
+      if (customerRows) {
+        document.getElementById('customer-section').innerHTML =
+          '<div class="estimate-section-label">Customer</div>' + customerRows;
+      } else {
+        document.getElementById('customer-section').style.display = 'none';
+      }
+
+      // Vehicle section
+      const vehicleParts = [v.year, v.make, v.model].filter(Boolean);
+      const wheelbase = v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '';
+      const vehicleRows = [
+        vehicleParts.length ? `<div class="estimate-row"><span class="estimate-row-label">Vehicle</span><span class="estimate-row-value">${esc(vehicleParts.join(' '))}</span></div>` : '',
+        wheelbase ? `<div class="estimate-row"><span class="estimate-row-label">Wheelbase</span><span class="estimate-row-value">${esc(wheelbase)}</span></div>` : '',
+      ].filter(Boolean).join('');
+      if (vehicleRows) {
+        document.getElementById('vehicle-section').innerHTML =
+          '<div class="estimate-section-label">Vehicle</div>' + vehicleRows;
+      } else {
+        document.getElementById('vehicle-section').style.display = 'none';
+      }
+
+      // Parts list
+      const resolved = (payload.selectedParts || [])
+        .map(id => PRODUCTS.find(p => p.id === id))
+        .filter(Boolean);
+
+      const partsList = document.getElementById('parts-list');
+      if (resolved.length === 0) {
+        partsList.innerHTML = '<p style="font-size:14px;color:var(--text-muted);padding:8px 0;">No parts listed.</p>';
+      } else {
+        partsList.innerHTML = resolved.map(p => {
+          const price = p.installedPrice > 0 ? p.installedPrice : 0;
+          const priceLabel = p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA';
+          const noteHtml = p.notes ? `<div class="part-row-note">${esc(p.notes)}</div>` : '';
+          return `<label class="part-row">
+            <input type="checkbox" checked data-price="${price}" data-name="${esc(p.name)}">
+            <div class="part-row-info">
+              <div class="part-row-name">${esc(p.name)}</div>
+              ${noteHtml}
+            </div>
+            <div class="part-row-price">${priceLabel}</div>
+          </label>`;
+        }).join('');
+      }
+
+      // Initial total
+      updateTotal();
+
+      // Live total on checkbox change
+      partsList.addEventListener('change', e => {
+        const row = e.target.closest('.part-row');
+        if (row) row.classList.toggle('removed', !e.target.checked);
+        updateTotal();
+      });
+
+      // Contact fallback links
+      const phone = payload.shopPhone || '';
+      const email = payload.shopEmail || '';
+      if (phone || email) {
+        const links = [
+          phone ? `<a href="tel:${esc(phone)}">${esc(phone)}</a>` : '',
+          email ? `<a href="mailto:${esc(email)}">${esc(email)}</a>` : '',
+        ].filter(Boolean).join('');
+        document.getElementById('contact-links').innerHTML = links;
+      }
+
+      // Approve button
+      document.getElementById('btn-approve').addEventListener('click', () => {
+        const vehicleStr = vehicleParts.join(' ');
+        const notes = document.getElementById('customer-notes').value.trim();
+        let msg = `Hi, this is ${c.name || 'your customer'}. I'm approving my Van Mart estimate`
+          + (vehicleStr ? ` for my ${vehicleStr}` : '')
+          + `. Total: ${fmt(payload.total)}. Looks good — let's move forward!`;
+        if (notes) msg += `\n\nAdditional notes: ${notes}`;
+        openContactAction(phone, email, `Estimate Approval — ${c.name || 'Customer'}`, msg);
+      });
+
+      // Request Changes button
+      document.getElementById('btn-changes').addEventListener('click', () => {
+        const vehicleStr = vehicleParts.join(' ');
+        const notes = document.getElementById('customer-notes').value.trim();
+
+        const removedNames = [];
+        document.querySelectorAll('#parts-list input[type="checkbox"]').forEach(cb => {
+          if (!cb.checked) removedNames.push(cb.dataset.name);
+        });
+
+        const newTotal = getCurrentTotal();
+        let msg = `Hi, this is ${c.name || 'your customer'} and I'd like to make some changes to my Van Mart estimate`
+          + (vehicleStr ? ` for my ${vehicleStr}` : '') + '.';
+
+        if (removedNames.length > 0) {
+          msg += '\n\nPlease remove:\n' + removedNames.map(n => `  - ${n}`).join('\n');
+          msg += `\n\nRevised subtotal (my estimate): ${fmt(newTotal)}`;
+        }
+
+        if (notes) {
+          msg += `\n\nI'd also like to add/ask about:\n${notes}`;
+        }
+
+        if (removedNames.length === 0 && !notes) {
+          msg += '\n\n(No specific changes — please follow up with me to discuss.)';
+        }
+
+        msg += '\n\nPlease confirm the updated quote. Thank you!';
+
+        const subject = `Estimate Change Request — ${c.name || 'Customer'}${vehicleStr ? ' — ' + vehicleStr : ''}`;
+        openContactAction(phone, email, subject, msg);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const payload = decodeHash(location.hash);
+
+      if (!payload || !payload.selectedParts || !Array.isArray(payload.selectedParts)) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = '';
+        return;
+      }
+
+      renderPage(payload);
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('estimate-view').style.display = '';
+    });
+  </script>
+</body>
+</html>
