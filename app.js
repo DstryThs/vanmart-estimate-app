@@ -204,7 +204,7 @@ function renderHome() {
             </div>
             <div class="estimate-card-right">
               <div class="estimate-card-total">${fmt(est.total)}</div>
-              <div class="estimate-card-arrow">&#8250;</div>
+              <button class="estimate-card-menu" data-id="${idAttr}" type="button" aria-label="More actions" aria-haspopup="true" aria-expanded="false">&#8943;</button>
             </div>
           </div>
         </div>
@@ -895,10 +895,26 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return;
     }
+    // Kebab menu reveal — gives non-touch users (desktop, mouse, keyboard)
+    // access to the actions that swipe-to-reveal exposes on touch devices.
+    const menu = e.target.closest('.estimate-card-menu');
+    if (menu) {
+      e.stopPropagation();
+      const row = menu.closest('.estimate-card-row');
+      const isOpen = row.classList.contains('open');
+      closeAllRows();
+      if (!isOpen) {
+        row.classList.add('open');
+        menu.setAttribute('aria-expanded', 'true');
+      }
+      return;
+    }
     const row = e.target.closest('.estimate-card-row');
     if (!row) return;
     if (row.classList.contains('open')) {
       row.classList.remove('open');
+      const m = row.querySelector('.estimate-card-menu');
+      if (m) m.setAttribute('aria-expanded', 'false');
       return;
     }
     if (document.querySelector('.estimate-card-row.open')) {
@@ -914,8 +930,25 @@ document.addEventListener('DOMContentLoaded', () => {
   let swipe = null;
 
   function closeAllRows() {
-    document.querySelectorAll('.estimate-card-row.open').forEach(r => r.classList.remove('open'));
+    document.querySelectorAll('.estimate-card-row.open').forEach(r => {
+      r.classList.remove('open');
+      const m = r.querySelector('.estimate-card-menu');
+      if (m) m.setAttribute('aria-expanded', 'false');
+    });
   }
+
+  // Dismiss an open row when the user clicks anywhere outside the home list,
+  // or presses Escape — so the kebab-menu reveal feels like a normal popover.
+  document.addEventListener('click', e => {
+    if (!document.querySelector('.estimate-card-row.open')) return;
+    if (e.target.closest('#estimates-list')) return;
+    closeAllRows();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.querySelector('.estimate-card-row.open')) {
+      closeAllRows();
+    }
+  });
 
   estList.addEventListener('touchstart', e => {
     const row = e.target.closest('.estimate-card-row');
@@ -971,6 +1004,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const finalOffset = base + swipe.dx;
       const shouldOpen = finalOffset < -ACTION_WIDTH / 2;
       swipe.row.classList.toggle('open', shouldOpen);
+      const m = swipe.row.querySelector('.estimate-card-menu');
+      if (m) m.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
     }
     swipe = null;
   });
