@@ -14,8 +14,8 @@ const FOLLOWUP_HOURS = 48;
 
 const STATUS_VALUES = ['draft', 'shared', 'approved', 'declined', 'deferred', 'cancelled'];
 
-// Customer-facing estimate page. Update if the app is moved off GitHub Pages.
-const BASE_URL = 'https://dstrythas.github.io/vanmart-estimate-app';
+// Customer-facing estimate page — resolves to the directory the app is served from.
+const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
 const SHOP_PHONE = '657-222-8016';
 const SHOP_EMAIL = 'mikec@thevanmart.com';
 
