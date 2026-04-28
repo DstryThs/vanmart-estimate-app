@@ -76,6 +76,7 @@
         <div class="header-title">
           <span class="header-brand">New Estimate</span>
         </div>
+        <button class="btn-header-clear" id="btn-clear-customer" type="button" aria-label="Clear estimate">Clear</button>
       </header>
       <div class="content">
         <form id="form-customer" novalidate>
@@ -135,6 +136,7 @@
           </section>
 
           <div class="form-actions">
+            <button type="button" id="btn-draft-customer" class="btn-secondary btn-full">Save Draft</button>
             <button type="submit" class="btn-primary btn-full">Select Parts &rarr;</button>
           </div>
         </form>
@@ -148,11 +150,41 @@
         <div class="header-title">
           <span class="header-brand">Select Parts</span>
         </div>
+        <button class="btn-header-clear" id="btn-clear-parts" type="button" aria-label="Clear estimate">Clear</button>
       </header>
       <div class="search-bar">
         <input type="search" id="parts-search" placeholder="&#128269; Search parts...">
       </div>
       <div class="content content-parts" id="parts-list"></div>
+      <div class="custom-parts-section" id="custom-parts-section">
+        <div id="custom-parts-list"></div>
+        <button id="btn-add-custom" class="btn-add-custom" type="button">+ Add Custom Item</button>
+      </div>
+      <div id="custom-part-sheet" class="custom-part-sheet" hidden aria-hidden="true">
+        <div class="selected-sheet-header">
+          <span class="selected-sheet-title">Add Custom Item</span>
+          <button id="custom-part-sheet-close" class="selected-sheet-close" type="button" aria-label="Close">&times;</button>
+        </div>
+        <form id="form-custom-part" class="custom-part-form" novalidate>
+          <div class="form-group">
+            <label for="custom-part-name">Item Name <span class="required">*</span></label>
+            <input type="text" id="custom-part-name" placeholder="e.g. Custom Roof Wrap" autocomplete="off">
+            <div class="field-error" id="error-custom-part-name" hidden></div>
+          </div>
+          <div class="form-group">
+            <label for="custom-part-price">Installed Price <span class="required">*</span></label>
+            <input type="text" id="custom-part-price" placeholder="e.g. 800" inputmode="decimal" autocomplete="off">
+            <div class="field-error" id="error-custom-part-price" hidden></div>
+          </div>
+          <div class="form-group">
+            <label for="custom-part-notes">Notes</label>
+            <input type="text" id="custom-part-notes" placeholder="Optional notes" autocomplete="off">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary btn-full">Add Item</button>
+          </div>
+        </form>
+      </div>
       <div id="selected-sheet" class="selected-sheet" hidden aria-hidden="true">
         <div class="selected-sheet-header">
           <span class="selected-sheet-title">Selected items</span>
@@ -168,6 +200,7 @@
           </div>
           <span class="footer-chevron" aria-hidden="true">&#9650;</span>
         </div>
+        <button id="btn-draft-parts" class="btn-secondary btn-compact" type="button">Save Draft</button>
         <button id="btn-view-estimate" class="btn-primary" disabled>View Estimate</button>
       </div>
     </div>
@@ -176,6 +209,7 @@
     <div id="view-estimate" class="view">
       <header class="header">
         <button class="btn-back" data-target="parts">&#8592;</button>
+        <button class="btn-header-clear" id="btn-clear-estimate" type="button" aria-label="Clear estimate">Clear</button>
         <div class="header-title">
           <span class="header-brand">Estimate</span>
         </div>
@@ -185,6 +219,18 @@
       <div class="sticky-footer">
         <button id="btn-share" class="btn-secondary">&#8679; Share</button>
         <button id="btn-save" class="btn-primary">Save</button>
+      </div>
+    </div>
+
+    <!-- CONFIRM SHEET (destructive action confirmation) -->
+    <div id="confirm-sheet" class="confirm-sheet" hidden aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="confirm-sheet-backdrop" id="confirm-sheet-backdrop"></div>
+      <div class="confirm-sheet-panel">
+        <p id="confirm-sheet-message" class="confirm-sheet-message"></p>
+        <div class="confirm-sheet-actions">
+          <button id="confirm-sheet-cancel" class="btn-secondary confirm-btn" type="button">Cancel</button>
+          <button id="confirm-sheet-ok" class="btn-danger confirm-btn" type="button">Yes, Clear</button>
+        </div>
       </div>
     </div>
 

@@ -948,3 +948,224 @@ body {
 }
 
 .toast-action:active { background: rgba(255,255,255,0.08); }
+
+/* === FORM ACTIONS (stacked button layout) === */
+.form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* === COMPACT BUTTON (for tight footer rows) === */
+.btn-compact {
+  padding: 0 12px;
+  font-size: 13px;
+  height: 40px;
+}
+
+/* === DANGER BUTTON === */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  height: 44px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  background: var(--danger);
+  color: #fff;
+  transition: opacity 0.15s;
+}
+.btn-danger:active { opacity: 0.85; }
+
+/* === HEADER CLEAR BUTTON === */
+.btn-header-clear {
+  background: rgba(255,255,255,0.12);
+  border: none;
+  color: rgba(255,255,255,0.9);
+  font-size: 13px;
+  font-weight: 600;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--font);
+  transition: background 0.15s;
+}
+.btn-header-clear:active {
+  background: rgba(220, 38, 38, 0.4);
+  color: #fff;
+}
+
+/* === CONFIRM SHEET (destructive confirmation) === */
+.confirm-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+}
+.confirm-sheet[hidden] { display: none; }
+
+.confirm-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.24s ease;
+}
+.confirm-sheet.open .confirm-sheet-backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.confirm-sheet-panel {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding: 24px 20px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 24px rgba(0,0,0,0.14);
+  transform: translateY(100%);
+  transition: transform 0.24s ease-out;
+}
+.confirm-sheet.open .confirm-sheet-panel {
+  transform: translateY(0);
+}
+
+.confirm-sheet-message {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  text-align: center;
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.confirm-sheet-actions {
+  display: flex;
+  gap: 12px;
+}
+.confirm-btn { flex: 1; }
+
+/* === CUSTOM PARTS SECTION (below catalog parts list) === */
+.custom-parts-section {
+  background: var(--surface);
+  border-top: 2px solid var(--border);
+  flex-shrink: 0;
+}
+
+.btn-add-custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 15px 16px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  gap: 6px;
+}
+.btn-add-custom:active { background: var(--selected-bg); }
+
+.custom-part-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  background: var(--selected-bg);
+  border-left: 3px solid var(--accent);
+}
+
+.custom-part-info { flex: 1; min-width: 0; }
+
+.custom-part-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+
+.custom-part-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-part-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.custom-part-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.custom-part-remove {
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: var(--font);
+}
+.custom-part-remove:active {
+  background: #FEF2F2;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* === CUSTOM PART SHEET === */
+.custom-part-sheet {
+  position: fixed;
+  left: 50%;
+  bottom: var(--footer-h);
+  width: 100%;
+  max-width: 640px;
+  transform: translate(-50%, calc(100% + var(--footer-h)));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -8px 24px rgba(0,0,0,0.12);
+  z-index: 96;
+  transition: transform 0.24s ease-out;
+}
+.custom-part-sheet.open {
+  transform: translate(-50%, 0);
+}
+.custom-part-sheet[hidden] { display: none; }
+
+.custom-part-form {
+  padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}

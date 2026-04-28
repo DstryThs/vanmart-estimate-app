@@ -41,6 +41,7 @@ const state = {
   customer: {},
   vehicle: {},
   selected: new Set(),
+  customParts: [],
   sharedAt: null,
   status: 'draft',
   notes: '',
@@ -219,18 +220,28 @@ function renderHome() {
 }
 
 // === NEW / LOAD ESTIMATE ===
-function startNew() {
+function resetState() {
   state.currentId = null;
   state.customer = {};
   state.vehicle = {};
   state.selected = new Set();
+  state.customParts = [];
   state.sharedAt = null;
   state.status = 'draft';
   state.notes = '';
   document.getElementById('form-customer').reset();
   document.querySelector('input[name="wheelbase"][value="144"]').checked = true;
   clearAllFieldErrors();
+}
+
+function startNew() {
+  resetState();
   showView('customer');
+}
+
+function clearEstimate() {
+  resetState();
+  showView('home');
 }
 
 function loadEstimate(id) {
@@ -241,6 +252,7 @@ function loadEstimate(id) {
   state.customer = { ...est.customer };
   state.vehicle = { ...est.vehicle };
   state.selected = new Set(est.selectedParts);
+  state.customParts = (est.customParts || []).map(cp => ({ ...cp }));
   state.sharedAt = est.sharedAt || null;
   state.status = est.status || 'draft';
   state.notes = est.notes || '';
@@ -260,6 +272,7 @@ function duplicateEstimate(id) {
   state.customer = { ...src.customer };
   state.vehicle = { ...src.vehicle };
   state.selected = new Set(src.selectedParts);
+  state.customParts = (src.customParts || []).map(cp => ({ ...cp }));
   state.sharedAt = null;
   state.status = 'draft';
   state.notes = '';
@@ -379,18 +392,24 @@ function updateCategoryBadge(id) {
 }
 
 function updateFooter() {
-  const count = state.selected.size;
-  const total = [...state.selected].reduce((sum, id) => {
+  const catalogCount = state.selected.size;
+  const catalogTotal = [...state.selected].reduce((sum, id) => {
     const p = PRODUCTS.find(prod => prod.id === id);
     return sum + (p ? p.installedPrice : 0);
   }, 0);
+  const customCount = state.customParts.length;
+  const customTotal = state.customParts.reduce((sum, cp) => sum + cp.price, 0);
+  const count = catalogCount + customCount;
+  const total = catalogTotal + customTotal;
+
   document.getElementById('selected-count').textContent =
     count === 0 ? '0 items selected' : `${count} item${count !== 1 ? 's' : ''} selected`;
   document.getElementById('selected-total').textContent = fmt(total);
-  document.getElementById('btn-view-estimate').disabled = count === 0;
+  const isEmpty = count === 0;
+  document.getElementById('btn-view-estimate').disabled = isEmpty;
 
   const summary = document.getElementById('footer-summary');
-  if (summary) summary.setAttribute('aria-disabled', count === 0 ? 'true' : 'false');
+  if (summary) summary.setAttribute('aria-disabled', isEmpty ? 'true' : 'false');
 }
 
 // === SELECTED ITEMS SHEET (parts view) ===
@@ -405,7 +424,7 @@ function renderSelectedSheet() {
     grouped[p.category].push(p);
   });
 
-  content.innerHTML = CATEGORIES.filter(cat => grouped[cat]).map(cat => `
+  let html = CATEGORIES.filter(cat => grouped[cat]).map(cat => `
     <div class="selected-sheet-category">${esc(cat)}</div>
     ${grouped[cat].map(p => `
       <div class="selected-sheet-row">
@@ -415,6 +434,19 @@ function renderSelectedSheet() {
       </div>
     `).join('')}
   `).join('');
+
+  if (state.customParts.length > 0) {
+    html += `<div class="selected-sheet-category">Custom Items</div>`;
+    html += state.customParts.map(cp => `
+      <div class="selected-sheet-row">
+        <span class="selected-sheet-name">${esc(cp.name)}</span>
+        <span class="selected-sheet-price">${fmt(cp.price)}</span>
+        <button class="selected-sheet-remove" type="button" data-custom-id="${esc(cp.id)}" aria-label="Remove ${esc(cp.name)}">&times;</button>
+      </div>
+    `).join('');
+  }
+
+  content.innerHTML = html;
 }
 
 function isSelectedSheetOpen() {
@@ -454,7 +486,7 @@ function closeSelectedSheet({ animate = true } = {}) {
 }
 
 function toggleSelectedSheet() {
-  if (state.selected.size === 0) return;
+  if (state.selected.size === 0 && state.customParts.length === 0) return;
   if (isSelectedSheetOpen()) closeSelectedSheet();
   else openSelectedSheet();
 }
@@ -486,8 +518,8 @@ function calcTotal(products) {
 }
 
 function renderEstimate() {
-  const products = getSelectedProducts();
-  const total = calcTotal(products);
+  const allItems = getAllSelectedItems();
+  const total = calcTotal(allItems);
   const c = state.customer;
   const v = state.vehicle;
 
@@ -497,8 +529,10 @@ function renderEstimate() {
   const existingEst = state.currentId ? state.estimates.find(e => e.id === state.currentId) : null;
   const dateStr = new Date(existingEst?.createdAt ?? Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
+  const catalogItems = allItems.filter(p => !p.isCustom);
+  const customItems = allItems.filter(p => p.isCustom);
   const grouped = {};
-  products.forEach(p => {
+  catalogItems.forEach(p => {
     if (!grouped[p.category]) grouped[p.category] = [];
     grouped[p.category].push(p);
   });
@@ -555,6 +589,24 @@ function renderEstimate() {
       </div>
     `;}).join('')}
 
+    ${customItems.length > 0 ? `
+      <div class="estimate-section">
+        <div class="estimate-section-label">Custom Items</div>
+        ${customItems.map(p => `
+          <div class="estimate-row">
+            <span class="estimate-row-label">${esc(p.name)}${p.notes ? `<br><span style="font-size:11px;color:var(--text-muted)">${esc(p.notes)}</span>` : ''}</span>
+            <span class="estimate-row-value price">${fmt(p.installedPrice)}</span>
+          </div>
+        `).join('')}
+        ${customItems.length > 1 ? `
+          <div class="estimate-row subtotal-row">
+            <span class="estimate-row-label">Subtotal</span>
+            <span class="estimate-row-value price">${fmt(customItems.reduce((s, p) => s + p.installedPrice, 0))}</span>
+          </div>
+        ` : ''}
+      </div>
+    ` : ''}
+
     <div class="estimate-total-block">
       <span class="estimate-total-label">Estimated Total</span>
       <span class="estimate-total-value">${fmt(total)}</span>
@@ -599,6 +651,7 @@ function encodeEstimateForURL(est) {
     customer: est.customer,
     vehicle: est.vehicle,
     selectedParts: est.selectedParts,
+    customParts: est.customParts || [],
     total: est.total,
     createdAt: est.createdAt,
     shopPhone: SHOP_PHONE,
@@ -709,9 +762,142 @@ function hideToast() {
   }, 200);
 }
 
+// === CONFIRM SHEET ===
+let confirmSheetCallback = null;
+
+function showConfirmSheet(message, onConfirm) {
+  const sheet = document.getElementById('confirm-sheet');
+  const msgEl = document.getElementById('confirm-sheet-message');
+  if (!sheet || !msgEl) return;
+  confirmSheetCallback = onConfirm;
+  msgEl.textContent = message;
+  sheet.hidden = false;
+  sheet.setAttribute('aria-hidden', 'false');
+  void sheet.offsetWidth;
+  sheet.classList.add('open');
+}
+
+function hideConfirmSheet() {
+  const sheet = document.getElementById('confirm-sheet');
+  if (!sheet) return;
+  confirmSheetCallback = null;
+  sheet.classList.remove('open');
+  sheet.setAttribute('aria-hidden', 'true');
+  setTimeout(() => {
+    if (!sheet.classList.contains('open')) sheet.hidden = true;
+  }, 240);
+}
+
+// === SAVE DRAFT HELPERS ===
+function captureCustomerForm() {
+  const name = document.getElementById('customer-name').value.trim();
+  if (!name) {
+    setFieldError('customer-name', 'Name is required');
+    document.getElementById('customer-name').focus();
+    return false;
+  }
+  const phone = document.getElementById('customer-phone').value.trim();
+  const email = document.getElementById('customer-email').value.trim();
+  state.customer = {
+    name,
+    phone: phone ? formatPhone(phone) : '',
+    email: email.toLowerCase()
+  };
+  state.vehicle = {
+    year: document.getElementById('vehicle-year').value.trim(),
+    make: document.getElementById('vehicle-make').value.trim(),
+    model: document.getElementById('vehicle-model').value.trim(),
+    wheelbase: document.querySelector('input[name="wheelbase"]:checked')?.value || 'both'
+  };
+  return true;
+}
+
+function flashSaved(btnEl) {
+  if (!btnEl) return;
+  const orig = btnEl.textContent;
+  btnEl.textContent = 'Saved!';
+  btnEl.disabled = true;
+  setTimeout(() => {
+    btnEl.textContent = orig;
+    btnEl.disabled = false;
+  }, 2000);
+}
+
+// === CUSTOM PARTS ===
+function getAllSelectedItems() {
+  const standard = getSelectedProducts();
+  const custom = state.customParts.map(cp => ({
+    id: cp.id,
+    name: cp.name,
+    category: 'Custom',
+    installedPrice: cp.price,
+    notes: cp.notes || '',
+    isCustom: true
+  }));
+  return [...standard, ...custom];
+}
+
+function renderCustomPartsList() {
+  const container = document.getElementById('custom-parts-list');
+  if (!container) return;
+  if (state.customParts.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = state.customParts.map(cp => `
+    <div class="custom-part-item">
+      <div class="custom-part-info">
+        <div class="custom-part-label">Custom</div>
+        <div class="custom-part-name">${esc(cp.name)}</div>
+        ${cp.notes ? `<div class="custom-part-note">${esc(cp.notes)}</div>` : ''}
+      </div>
+      <span class="custom-part-price">${fmt(cp.price)}</span>
+      <button class="custom-part-remove" type="button" data-custom-id="${esc(cp.id)}" aria-label="Remove ${esc(cp.name)}">&times;</button>
+    </div>
+  `).join('');
+}
+
+function addCustomPart(name, price, notes) {
+  const cp = { id: 'custom-' + uid(), name: name.trim(), price: parseFloat(price) || 0, notes: (notes || '').trim() };
+  state.customParts.push(cp);
+  renderCustomPartsList();
+  updateFooter();
+  if (isSelectedSheetOpen()) renderSelectedSheet();
+}
+
+function removeCustomPart(id) {
+  state.customParts = state.customParts.filter(cp => cp.id !== id);
+  renderCustomPartsList();
+  updateFooter();
+  if (isSelectedSheetOpen()) {
+    if (state.selected.size === 0 && state.customParts.length === 0) closeSelectedSheet();
+    else renderSelectedSheet();
+  }
+}
+
+function openCustomPartSheet() {
+  const sheet = document.getElementById('custom-part-sheet');
+  if (!sheet) return;
+  sheet.hidden = false;
+  sheet.setAttribute('aria-hidden', 'false');
+  void sheet.offsetWidth;
+  sheet.classList.add('open');
+  document.getElementById('custom-part-name')?.focus();
+}
+
+function closeCustomPartSheet() {
+  const sheet = document.getElementById('custom-part-sheet');
+  if (!sheet) return;
+  sheet.classList.remove('open');
+  sheet.setAttribute('aria-hidden', 'true');
+  setTimeout(() => {
+    if (!sheet.classList.contains('open')) sheet.hidden = true;
+  }, 240);
+}
+
 // === SAVE ===
 function saveEstimate() {
-  const products = getSelectedProducts();
+  const products = getAllSelectedItems();
   const total = calcTotal(products);
 
   const now = new Date().toISOString();
@@ -727,6 +913,7 @@ function saveEstimate() {
     customer: { ...state.customer },
     vehicle: { ...state.vehicle },
     selectedParts: [...state.selected],
+    customParts: state.customParts.map(cp => ({ ...cp })),
     total,
     synced: false
   };
@@ -743,11 +930,7 @@ function saveEstimate() {
   saveToStorage();
   syncEstimate(est);
 
-  const btn = document.getElementById('btn-save');
-  if (btn) {
-    btn.textContent = 'Saved!';
-    setTimeout(() => { btn.textContent = state.currentId ? 'Update' : 'Save'; }, 2000);
-  }
+  flashSaved(document.getElementById('btn-save'));
 }
 
 // Persist status/notes changes from the internal-tracking UI without the "Saved!" flash.
@@ -774,6 +957,11 @@ function buildSyncPayload(est) {
   const products = est.selectedParts
     .map(id => PRODUCTS.find(p => p.id === id))
     .filter(Boolean);
+  const customParts = (est.customParts || []).map(cp => ({ id: cp.id, name: cp.name, category: 'Custom', price: cp.price }));
+  const allParts = [
+    ...products.map(p => ({ id: p.id, name: p.name, category: p.category, price: p.installedPrice })),
+    ...customParts
+  ];
   const v = est.vehicle;
   const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
     .filter(Boolean).join(' ');
@@ -793,9 +981,9 @@ function buildSyncPayload(est) {
     make: v.make || '',
     model: v.model || '',
     wheelbase: v.wheelbase || '',
-    partCount: products.length,
+    partCount: allParts.length,
     total: est.total,
-    parts: products.map(p => ({ id: p.id, name: p.name, category: p.category, price: p.installedPrice }))
+    parts: allParts
   };
 }
 
@@ -923,8 +1111,12 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAllRows();
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.querySelector('.estimate-card-row.open')) {
-      closeAllRows();
+    if (e.key === 'Escape') {
+      if (document.getElementById('confirm-sheet')?.classList.contains('open')) {
+        hideConfirmSheet();
+      } else if (document.querySelector('.estimate-card-row.open')) {
+        closeAllRows();
+      }
     }
   });
 
@@ -998,6 +1190,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // Back buttons
   document.querySelectorAll('.btn-back').forEach(btn => {
     btn.addEventListener('click', () => showView(btn.dataset.target));
+  });
+
+  // Clear buttons (all 3 views)
+  ['btn-clear-customer', 'btn-clear-parts', 'btn-clear-estimate'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', () =>
+      showConfirmSheet('Are you sure you want to clear this estimate?', clearEstimate)
+    );
+  });
+
+  // Confirm sheet
+  document.getElementById('confirm-sheet-cancel').addEventListener('click', hideConfirmSheet);
+  document.getElementById('confirm-sheet-ok').addEventListener('click', () => {
+    if (confirmSheetCallback) confirmSheetCallback();
+    hideConfirmSheet();
+  });
+  document.getElementById('confirm-sheet-backdrop').addEventListener('click', hideConfirmSheet);
+
+  // Save Draft — customer view
+  document.getElementById('btn-draft-customer').addEventListener('click', () => {
+    if (!captureCustomerForm()) return;
+    saveEstimate();
+    flashSaved(document.getElementById('btn-draft-customer'));
   });
 
   // Customer form
@@ -1078,6 +1293,44 @@ document.addEventListener('DOMContentLoaded', () => {
     filterParts(e.target.value);
   });
 
+  // Save Draft — parts view
+  document.getElementById('btn-draft-parts').addEventListener('click', () => {
+    saveEstimate();
+    flashSaved(document.getElementById('btn-draft-parts'));
+  });
+
+  // Custom part sheet
+  document.getElementById('btn-add-custom').addEventListener('click', openCustomPartSheet);
+  document.getElementById('custom-part-sheet-close').addEventListener('click', closeCustomPartSheet);
+
+  document.getElementById('form-custom-part').addEventListener('submit', e => {
+    e.preventDefault();
+    const nameEl = document.getElementById('custom-part-name');
+    const priceEl = document.getElementById('custom-part-price');
+    const notesEl = document.getElementById('custom-part-notes');
+    const name = nameEl.value.trim();
+    const priceRaw = priceEl.value.trim().replace(/[^0-9.]/g, '');
+    const price = parseFloat(priceRaw);
+
+    let valid = true;
+    if (!name) { setFieldError('custom-part-name', 'Name is required'); valid = false; }
+    if (isNaN(price) || price < 0) { setFieldError('custom-part-price', 'Enter a valid price'); valid = false; }
+    if (!valid) return;
+
+    setFieldError('custom-part-name', '');
+    setFieldError('custom-part-price', '');
+
+    addCustomPart(name, price, notesEl.value.trim());
+    closeCustomPartSheet();
+    document.getElementById('form-custom-part').reset();
+  });
+
+  // Remove custom part from custom-parts-list (delegated)
+  document.getElementById('custom-parts-list').addEventListener('click', e => {
+    const btn = e.target.closest('.custom-part-remove');
+    if (btn) removeCustomPart(btn.dataset.customId);
+  });
+
   // Selected-items sheet (parts view)
   const footerSummary = document.getElementById('footer-summary');
   if (footerSummary) {
@@ -1095,7 +1348,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (sheetContent) {
     sheetContent.addEventListener('click', e => {
       const remove = e.target.closest('.selected-sheet-remove');
-      if (remove) togglePart(remove.dataset.partId);
+      if (!remove) return;
+      if (remove.dataset.partId) togglePart(remove.dataset.partId);
+      else if (remove.dataset.customId) removeCustomPart(remove.dataset.customId);
     });
   }
 

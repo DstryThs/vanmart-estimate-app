@@ -503,22 +503,27 @@
       const resolved = (payload.selectedParts || [])
         .map(id => PRODUCTS.find(p => p.id === id))
         .filter(Boolean);
+      const customParts = payload.customParts || [];
+      const allItems = [
+        ...resolved.map(p => ({ name: p.name, price: p.installedPrice > 0 ? p.installedPrice : 0, priceLabel: p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA', notes: p.notes || '', isCustom: false })),
+        ...customParts.map(cp => ({ name: cp.name, price: cp.price || 0, priceLabel: fmt(cp.price || 0), notes: cp.notes || '', isCustom: true }))
+      ];
 
       const partsList = document.getElementById('parts-list');
-      if (resolved.length === 0) {
+      if (allItems.length === 0) {
         partsList.innerHTML = '<p style="font-size:14px;color:var(--text-muted);padding:8px 0;">No parts listed.</p>';
       } else {
-        partsList.innerHTML = resolved.map(p => {
-          const price = p.installedPrice > 0 ? p.installedPrice : 0;
-          const priceLabel = p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA';
-          const noteHtml = p.notes ? `<div class="part-row-note">${esc(p.notes)}</div>` : '';
+        partsList.innerHTML = allItems.map(item => {
+          const noteHtml = item.notes ? `<div class="part-row-note">${esc(item.notes)}</div>` : '';
+          const customBadge = item.isCustom ? `<div class="part-row-note" style="color:var(--accent);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.05em">Custom</div>` : '';
           return `<label class="part-row">
-            <input type="checkbox" checked data-price="${price}" data-name="${esc(p.name)}">
+            <input type="checkbox" checked data-price="${item.price}" data-name="${esc(item.name)}">
             <div class="part-row-info">
-              <div class="part-row-name">${esc(p.name)}</div>
+              ${customBadge}
+              <div class="part-row-name">${esc(item.name)}</div>
               ${noteHtml}
             </div>
-            <div class="part-row-price">${priceLabel}</div>
+            <div class="part-row-price">${item.priceLabel}</div>
           </label>`;
         }).join('');
       }
