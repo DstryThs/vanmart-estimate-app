@@ -14,6 +14,11 @@ const FOLLOWUP_HOURS = 48;
 
 const STATUS_VALUES = ['draft', 'shared', 'approved', 'declined', 'deferred', 'cancelled'];
 
+// Customer-facing estimate page. Update if the app is moved off GitHub Pages.
+const BASE_URL = 'https://dstrythas.github.io/vanmart-estimate-app';
+const SHOP_PHONE = '657-222-8016';
+const SHOP_EMAIL = 'mikec@thevanmart.com';
+
 // Brand logo mark — 2×2 grid icon (sun, waves, mountain, pine tree).
 // Pass size for width/height; color defaults to white for use on green backgrounds.
 function logoSVG(size = 28, color = 'white') {
@@ -416,59 +421,40 @@ function renderEstimate() {
 }
 
 // === SHARE ===
+function encodeEstimateForURL(est) {
+  const payload = {
+    v: 1,
+    customer: est.customer,
+    vehicle: est.vehicle,
+    selectedParts: est.selectedParts,
+    total: est.total,
+    createdAt: est.createdAt,
+    shopPhone: SHOP_PHONE,
+    shopEmail: SHOP_EMAIL
+  };
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const b64 = btoa(String.fromCharCode(...bytes));
+  return BASE_URL + '/view.html#' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
 function shareEstimate(est) {
-  const c = est.customer;
-  const v = est.vehicle;
-  const products = est.selectedParts.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
-  const total = est.total;
-
-  const vehicleStr = [v.year, v.make, v.model, v.wheelbase && v.wheelbase !== 'both' ? v.wheelbase + '"' : '']
-    .filter(Boolean).join(' ');
-
-  const dateStr = new Date(est.createdAt ?? Date.now()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-
-  const grouped = {};
-  products.forEach(p => {
-    if (!grouped[p.category]) grouped[p.category] = [];
-    grouped[p.category].push(p);
-  });
-
-  const lines = [
-    'THE VAN MART',
-    'Service Estimate',
-    '',
-    `Date: ${dateStr}`,
-    `Customer: ${c.name}`,
-    vehicleStr ? `Vehicle: ${vehicleStr}` : null,
-    c.phone ? `Phone: ${c.phone}` : null,
-    c.email ? `Email: ${c.email}` : null,
-    '',
-    ...CATEGORIES.filter(cat => grouped[cat]).flatMap(cat => [
-      `[ ${cat.toUpperCase()} ]`,
-      ...grouped[cat].map(p => `  ${p.name}: ${p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA'}`),
-      ''
-    ]),
-    `ESTIMATED TOTAL: ${fmt(total)}`,
-    '',
-    'This is an estimate only. Final pricing subject to vehicle inspection and part availability.'
-  ].filter(l => l !== null).join('\n');
-
+  const url = encodeEstimateForURL(est);
   markShared(est.id);
 
   if (navigator.share) {
     navigator.share({
-      title: `Van Mart Estimate - ${c.name}`,
-      text: lines
+      title: `Van Mart Estimate — ${est.customer.name}`,
+      url
     }).catch(() => {});
   } else {
-    navigator.clipboard.writeText(lines).then(() => {
+    navigator.clipboard.writeText(url).then(() => {
       const btn = document.getElementById('btn-share');
       if (btn) {
         const orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 2000);
+        btn.textContent = 'Link Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 2500);
       }
-    }).catch(() => alert('Could not copy. Please screenshot the estimate.'));
+    }).catch(() => alert('Could not copy link. URL:\n' + url));
   }
 }
 
