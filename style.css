@@ -779,9 +779,39 @@ body {
   border-color: #B45309;
 }
 
-.estimate-card-right { text-align: right; flex-shrink: 0; }
+.estimate-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
 .estimate-card-total { font-size: 17px; font-weight: 700; color: var(--primary); }
-.estimate-card-arrow { font-size: 18px; color: var(--border); margin-top: 2px; }
+
+.estimate-card-menu {
+  width: 32px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
+}
+.estimate-card-menu:hover { background: var(--bg); color: var(--text); }
+.estimate-card-menu:active { background: var(--border); }
+.estimate-card-menu:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--selected-border);
+  color: var(--text);
+}
+.estimate-card-row.open .estimate-card-menu { color: var(--primary); }
 
 .home-section-label {
   font-size: 11px;
