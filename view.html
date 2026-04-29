@@ -404,6 +404,9 @@
   <script>
     'use strict';
 
+    const SHOP_PHONE = '657-222-8016';
+    const SHOP_EMAIL = 'mikec@thevanmart.com';
+
     const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ESC_MAP[c]);
     const fmt = n => (n > 0)
@@ -538,9 +541,12 @@
         updateTotal();
       });
 
+      // Set page title dynamically
+      if (c.name) document.title = `${c.name} — Van Mart Estimate`;
+
       // Contact fallback links
-      const phone = payload.shopPhone || '';
-      const email = payload.shopEmail || '';
+      const phone = payload.shopPhone || SHOP_PHONE;
+      const email = payload.shopEmail || SHOP_EMAIL;
       if (phone || email) {
         const links = [
           phone ? `<a href="tel:${esc(phone)}">${esc(phone)}</a>` : '',

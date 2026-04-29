@@ -646,17 +646,22 @@ function renderEstimate() {
 
 // === SHARE ===
 function encodeEstimateForURL(est) {
+  const c = est.customer || {};
+  const customer = { name: c.name };
+  if (c.phone) customer.phone = c.phone;
+  if (c.email) customer.email = c.email;
+
   const payload = {
     v: 1,
-    customer: est.customer,
+    customer,
     vehicle: est.vehicle,
     selectedParts: est.selectedParts,
-    customParts: est.customParts || [],
     total: est.total,
-    createdAt: est.createdAt,
-    shopPhone: SHOP_PHONE,
-    shopEmail: SHOP_EMAIL
+    createdAt: (est.createdAt || '').split('T')[0] || est.createdAt,
   };
+  const customParts = est.customParts || [];
+  if (customParts.length) payload.customParts = customParts;
+
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const b64 = btoa(String.fromCharCode(...bytes));
   return BASE_URL + '/view.html#' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
@@ -666,9 +671,11 @@ function shareEstimate(est) {
   const url = encodeEstimateForURL(est);
   markShared(est.id);
 
+  const customerName = est.customer?.name || 'Customer';
   if (navigator.share) {
     navigator.share({
-      title: `Van Mart Estimate — ${est.customer.name}`,
+      title: `${customerName} — Van Mart Estimate`,
+      text: `${customerName} — Van Mart Estimate`,
       url
     }).catch(() => {});
   } else {
