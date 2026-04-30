@@ -139,9 +139,7 @@ function buildVehicleString(v) {
     .filter(Boolean).join(' ');
 }
 
-function matchesHomeFilter(est) {
-  const { query, status } = state.homeFilter;
-  if (status !== 'all' && (est.status || 'draft') !== status) return false;
+function matchesHomeQuery(est, query) {
   if (!query) return true;
   const haystack = [
     est.customer.name,
@@ -151,6 +149,29 @@ function matchesHomeFilter(est) {
     est.notes
   ].filter(Boolean).join(' ').toLowerCase();
   return haystack.includes(query);
+}
+
+function matchesHomeFilter(est) {
+  const { query, status } = state.homeFilter;
+  if (status !== 'all' && (est.status || 'draft') !== status) return false;
+  return matchesHomeQuery(est, query);
+}
+
+// Updates the count badge on each status chip. Counts reflect search-matching
+// estimates (ignoring the active status filter) so users see how many results
+// each status holds without first clearing their search.
+function updateFilterChipCounts(searchMatches) {
+  const counts = { all: searchMatches.length };
+  searchMatches.forEach(est => {
+    const s = est.status || 'draft';
+    counts[s] = (counts[s] || 0) + 1;
+  });
+  document.querySelectorAll('#home-filter-chips .filter-chip').forEach(chip => {
+    const count = counts[chip.dataset.status] || 0;
+    const badge = chip.querySelector('.filter-chip-count');
+    if (badge) badge.textContent = count;
+    chip.classList.toggle('empty', count === 0);
+  });
 }
 
 function renderHome() {
@@ -171,6 +192,9 @@ function renderHome() {
     return;
   }
   empty.style.display = 'none';
+
+  const searchMatches = visible.filter(e => matchesHomeQuery(e, state.homeFilter.query));
+  updateFilterChipCounts(searchMatches);
 
   const filtered = visible.filter(matchesHomeFilter);
   if (filtered.length === 0) {
