@@ -435,8 +435,30 @@
       return total;
     }
 
+    function getRemovedNames() {
+      const names = [];
+      document.querySelectorAll('#parts-list input[type="checkbox"]').forEach(cb => {
+        if (!cb.checked) names.push(cb.dataset.name);
+      });
+      return names;
+    }
+
     function updateTotal() {
       document.getElementById('running-total').textContent = fmt(getCurrentTotal());
+    }
+
+    // Reflect uncheck state in the approve button so the customer sees they're
+    // approving a revised estimate (and what the new total is) — otherwise the
+    // shop receives "I'm approving" with the original, pre-removal total.
+    function updateApproveButton() {
+      const btn = document.getElementById('btn-approve');
+      if (!btn) return;
+      const removedCount = getRemovedNames().length;
+      if (removedCount === 0) {
+        btn.innerHTML = '&#10003;&nbsp; Looks Good &mdash; Send Approval';
+      } else {
+        btn.innerHTML = `&#10003;&nbsp; Approve Revised &mdash; ${fmt(getCurrentTotal())}`;
+      }
     }
 
     function openContactAction(phone, email, subject, body) {
@@ -539,6 +561,7 @@
         const row = e.target.closest('.part-row');
         if (row) row.classList.toggle('removed', !e.target.checked);
         updateTotal();
+        updateApproveButton();
       });
 
       // Set page title dynamically
@@ -559,11 +582,25 @@
       document.getElementById('btn-approve').addEventListener('click', () => {
         const vehicleStr = vehicleParts.join(' ');
         const notes = document.getElementById('customer-notes').value.trim();
+        const removedNames = getRemovedNames();
+        const finalTotal = getCurrentTotal();
+        const isRevised = removedNames.length > 0;
+
         let msg = `Hi, this is ${c.name || 'your customer'}. I'm approving my Van Mart estimate`
-          + (vehicleStr ? ` for my ${vehicleStr}` : '')
-          + `. Total: ${fmt(payload.total)}. Looks good — let's move forward!`;
+          + (vehicleStr ? ` for my ${vehicleStr}` : '');
+
+        if (isRevised) {
+          msg += ` with the following items removed:\n`
+            + removedNames.map(n => `  - ${n}`).join('\n')
+            + `\n\nRevised total: ${fmt(finalTotal)}. Looks good — let's move forward!`;
+        } else {
+          msg += `. Total: ${fmt(finalTotal)}. Looks good — let's move forward!`;
+        }
+
         if (notes) msg += `\n\nAdditional notes: ${notes}`;
-        openContactAction(phone, email, `Estimate Approval — ${c.name || 'Customer'}`, msg);
+
+        const subjectSuffix = isRevised ? ' (Revised)' : '';
+        openContactAction(phone, email, `Estimate Approval${subjectSuffix} — ${c.name || 'Customer'}`, msg);
       });
 
       // Request Changes button
