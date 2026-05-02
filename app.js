@@ -1375,6 +1375,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (est) shareEstimate(est);
   });
   document.getElementById('btn-save').addEventListener('click', saveEstimate);
+  document.getElementById('btn-print').addEventListener('click', () => window.print());
 
   // Internal-tracking status + notes (delegated, so they survive re-renders)
   const estimateContent = document.getElementById('estimate-content');
