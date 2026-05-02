@@ -320,6 +320,106 @@
     }
 
     .contact-links { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+
+    /* === PRINT BUTTON === */
+    .btn-print {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 0 auto 14px;
+      padding: 8px 14px;
+      background: transparent;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-print:hover { color: var(--primary); border-color: var(--primary); }
+    .btn-print:active { background: var(--selected-bg); }
+
+    .print-shop-info { display: none; }
+
+    /* === PRINT === */
+    @media print {
+      @page { margin: 0.5in; }
+      html, body {
+        background: #fff !important;
+        color: #000 !important;
+        max-width: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .header,
+      .cta-stack,
+      .contact-fallback,
+      .btn-print,
+      #loading,
+      #error { display: none !important; }
+      .content { padding: 0 !important; }
+
+      .estimate-hero {
+        border: none !important;
+        padding: 0 0 12px !important;
+        margin-bottom: 16px !important;
+        border-bottom: 2px solid #000 !important;
+        border-radius: 0 !important;
+      }
+      .estimate-hero-brand { color: #000 !important; }
+
+      .estimate-section {
+        background: transparent !important;
+        border-radius: 0 !important;
+        padding: 8px 0 !important;
+        margin-bottom: 6px !important;
+        page-break-inside: avoid;
+      }
+      .estimate-section-label {
+        color: #000 !important;
+        border-bottom: 1px solid #000 !important;
+        padding-bottom: 4px !important;
+      }
+      .estimate-row { border-bottom: 1px solid #ddd !important; }
+
+      /* Hide unchecked items from the printed copy and the notes input. */
+      .part-row.removed { display: none !important; }
+      .part-row input[type="checkbox"] { display: none !important; }
+      .notes-textarea { display: none !important; }
+      .notes-textarea-print {
+        display: block !important;
+        font-size: 13px;
+        white-space: pre-wrap;
+        padding: 4px 0;
+      }
+      /* Skip the whole notes section if customer hasn't typed anything. */
+      .print-hide-empty { display: none !important; }
+      .parts-instructions { display: none !important; }
+
+      .estimate-total-block {
+        background: #fff !important;
+        color: #000 !important;
+        border: 2px solid #000 !important;
+        border-radius: 0 !important;
+        page-break-inside: avoid;
+      }
+
+      .print-shop-info {
+        display: block !important;
+        text-align: center;
+        font-size: 11px;
+        color: #555;
+        border-top: 1px solid #ccc;
+        padding-top: 8px;
+        margin-top: 12px;
+      }
+      .print-shop-info strong { color: #000; font-size: 12px; }
+    }
+
+    .notes-textarea-print { display: none; }
   </style>
 </head>
 <body>
@@ -374,16 +474,28 @@
       </div>
 
       <!-- NOTES -->
-      <div class="estimate-section">
+      <div class="estimate-section" id="customer-notes-section">
         <div class="estimate-section-label">Want to add something?</div>
         <textarea id="customer-notes" class="notes-textarea" rows="3"
           placeholder="Describe anything else you&rsquo;d like &mdash; we&rsquo;ll follow up with pricing."></textarea>
+        <div id="customer-notes-print" class="notes-textarea-print"></div>
       </div>
 
       <!-- DISCLAIMER -->
       <p class="estimate-disclaimer">
         This is an estimate only. Final pricing subject to vehicle inspection and part availability. Installed prices include parts and labor.
       </p>
+
+      <!-- PRINT / SAVE AS PDF -->
+      <button id="btn-print" class="btn-print" type="button">
+        &#128424; Print / Save as PDF
+      </button>
+
+      <!-- SHOP CONTACT (print-only) -->
+      <div class="print-shop-info">
+        <strong>The Van Mart</strong><br>
+        <span id="print-shop-phone"></span> &nbsp;&middot;&nbsp; <span id="print-shop-email"></span>
+      </div>
 
       <!-- CTA BUTTONS -->
       <div class="cta-stack">
@@ -577,6 +689,23 @@
         ].filter(Boolean).join('');
         document.getElementById('contact-links').innerHTML = links;
       }
+
+      // Shop contact in the print-only footer
+      document.getElementById('print-shop-phone').textContent = phone || '';
+      document.getElementById('print-shop-email').textContent = email || '';
+
+      // Print / Save as PDF — mirror the textarea into a print-only block first
+      // so customer-typed notes appear on the printout (textareas don't print
+      // their live values reliably across browsers). When the field is empty,
+      // hide the whole "Want to add something?" section.
+      document.getElementById('btn-print').addEventListener('click', () => {
+        const notesPrint = document.getElementById('customer-notes-print');
+        const section = document.getElementById('customer-notes-section');
+        const notesText = document.getElementById('customer-notes').value.trim();
+        notesPrint.textContent = notesText;
+        section.classList.toggle('print-hide-empty', !notesText);
+        window.print();
+      });
 
       // Approve button
       document.getElementById('btn-approve').addEventListener('click', () => {

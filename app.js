@@ -641,6 +641,15 @@ function renderEstimate() {
       Installed prices include parts and labor. POA items are quoted separately and excluded from totals.
     </p>
 
+    <button id="btn-print-estimate" class="btn-print-estimate" type="button">
+      &#128424; Print / Save as PDF
+    </button>
+
+    <div class="print-shop-info">
+      <strong>The Van Mart</strong><br>
+      ${esc(SHOP_PHONE)} &nbsp;&middot;&nbsp; ${esc(SHOP_EMAIL)}
+    </div>
+
     ${state.currentId ? `
       <div class="estimate-section internal-section">
         <div class="estimate-section-label">Internal Tracking</div>
@@ -1413,6 +1422,9 @@ document.addEventListener('DOMContentLoaded', () => {
       state.notes = e.target.value;
       debouncedPersistNotes();
     }
+  });
+  estimateContent.addEventListener('click', e => {
+    if (e.target.closest('#btn-print-estimate')) window.print();
   });
 
   // Done -> home
