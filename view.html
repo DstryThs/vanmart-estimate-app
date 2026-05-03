@@ -559,9 +559,27 @@
       document.getElementById('btn-approve').addEventListener('click', () => {
         const vehicleStr = vehicleParts.join(' ');
         const notes = document.getElementById('customer-notes').value.trim();
+
+        // A customer can uncheck items before approving; record what they
+        // dropped and use the recalculated total so the shop's approval
+        // message reflects what was actually approved, not the original quote.
+        const removedNames = [];
+        document.querySelectorAll('#parts-list input[type="checkbox"]').forEach(cb => {
+          if (!cb.checked) removedNames.push(cb.dataset.name);
+        });
+        const currentTotal = getCurrentTotal();
+
         let msg = `Hi, this is ${c.name || 'your customer'}. I'm approving my Van Mart estimate`
-          + (vehicleStr ? ` for my ${vehicleStr}` : '')
-          + `. Total: ${fmt(payload.total)}. Looks good — let's move forward!`;
+          + (vehicleStr ? ` for my ${vehicleStr}` : '');
+
+        if (removedNames.length > 0) {
+          msg += ", with these items removed:\n"
+            + removedNames.map(n => `  - ${n}`).join('\n')
+            + `\n\nApproved total: ${fmt(currentTotal)}. Let's move forward!`;
+        } else {
+          msg += `. Total: ${fmt(currentTotal)}. Looks good — let's move forward!`;
+        }
+
         if (notes) msg += `\n\nAdditional notes: ${notes}`;
         openContactAction(phone, email, `Estimate Approval — ${c.name || 'Customer'}`, msg);
       });
