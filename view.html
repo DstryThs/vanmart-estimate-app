@@ -261,6 +261,48 @@
 
     .part-row.removed .part-row-price { color: var(--text-muted); }
 
+    /* === CATEGORY GROUPS === */
+    .category-group { padding-top: 4px; }
+    .category-group + .category-group { margin-top: 8px; }
+
+    .category-group-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--primary);
+      padding: 8px 0 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+    }
+
+    .category-group .part-row { padding: 11px 0; }
+
+    .category-subtotal {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0 4px;
+      border-top: 1px dashed var(--border);
+      margin-top: 4px;
+    }
+
+    .category-subtotal-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .category-subtotal-mark { color: var(--accent); margin-left: 2px; }
+
+    .category-subtotal-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
     /* === TOTAL === */
     .estimate-total-block {
       background: var(--primary);
@@ -388,6 +430,13 @@
       /* Hide unchecked items from the printed copy and the notes input. */
       .part-row.removed { display: none !important; }
       .part-row input[type="checkbox"] { display: none !important; }
+
+      .category-group { page-break-inside: avoid; }
+      .category-group-label { color: #000 !important; }
+      .category-subtotal { border-top-color: #999 !important; }
+      .category-subtotal-label { color: #000 !important; }
+      /* Drop empty category groups (when every item was unchecked) from print. */
+      .category-group.print-hide-empty { display: none !important; }
       .notes-textarea { display: none !important; }
       .notes-textarea-print {
         display: block !important;
@@ -519,6 +568,14 @@
     const SHOP_PHONE = '657-222-8016';
     const SHOP_EMAIL = 'mikec@thevanmart.com';
 
+    // Canonical category order — mirrors app.js so the customer sees the same
+    // grouping the shop sees internally. Custom items always render last.
+    const CATEGORIES = [
+      'Exterior', 'Suspension', 'Wheels & Tires', 'Roof Racks & Lighting',
+      'Windows', 'Capsules', 'Audio', 'Electrical & Power', 'Water Systems', 'Climate', 'Interior'
+    ];
+    const CUSTOM_CATEGORY = 'Custom Items';
+
     const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ESC_MAP[c]);
     const fmt = n => (n > 0)
@@ -557,6 +614,29 @@
 
     function updateTotal() {
       document.getElementById('running-total').textContent = fmt(getCurrentTotal());
+    }
+
+    // Recompute the subtotal for a single category section. Called after each
+    // toggle so the customer sees per-category totals shrink as they uncheck.
+    function updateCategorySubtotal(section) {
+      if (!section) return;
+      const subtotalEl = section.querySelector('.category-subtotal-value');
+      if (!subtotalEl) return;
+      let subtotal = 0;
+      let hasPOA = false;
+      section.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        if (!cb.checked) return;
+        const price = Number(cb.dataset.price) || 0;
+        if (cb.dataset.poa === '1') hasPOA = true;
+        subtotal += price;
+      });
+      subtotalEl.textContent = fmt(subtotal);
+      const markEl = section.querySelector('.category-subtotal-mark');
+      if (markEl) markEl.style.display = hasPOA ? '' : 'none';
+    }
+
+    function updateAllCategorySubtotals() {
+      document.querySelectorAll('.category-group').forEach(updateCategorySubtotal);
     }
 
     // Reflect uncheck state in the approve button so the customer sees they're
@@ -636,42 +716,88 @@
         document.getElementById('vehicle-section').style.display = 'none';
       }
 
-      // Parts list
+      // Parts list — group by category so long estimates are scannable and the
+      // customer can see how cost breaks down per area as they uncheck items.
       const resolved = (payload.selectedParts || [])
         .map(id => PRODUCTS.find(p => p.id === id))
         .filter(Boolean);
       const customParts = payload.customParts || [];
-      const allItems = [
-        ...resolved.map(p => ({ name: p.name, price: p.installedPrice > 0 ? p.installedPrice : 0, priceLabel: p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA', notes: p.notes || '', isCustom: false })),
-        ...customParts.map(cp => ({ name: cp.name, price: cp.price || 0, priceLabel: fmt(cp.price || 0), notes: cp.notes || '', isCustom: true }))
+
+      const grouped = {};
+      resolved.forEach(p => {
+        const cat = p.category || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push({
+          name: p.name,
+          price: p.installedPrice > 0 ? p.installedPrice : 0,
+          priceLabel: p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA',
+          isPOA: !(p.installedPrice > 0),
+          notes: p.notes || '',
+          isCustom: false
+        });
+      });
+      if (customParts.length > 0) {
+        grouped[CUSTOM_CATEGORY] = customParts.map(cp => ({
+          name: cp.name,
+          price: cp.price || 0,
+          priceLabel: fmt(cp.price || 0),
+          isPOA: false,
+          notes: cp.notes || '',
+          isCustom: true
+        }));
+      }
+
+      const orderedCategories = [
+        ...CATEGORIES.filter(c => grouped[c]),
+        // Catch any category not in the canonical list (e.g. new ones added later).
+        ...Object.keys(grouped).filter(c => !CATEGORIES.includes(c) && c !== CUSTOM_CATEGORY).sort(),
+        ...(grouped[CUSTOM_CATEGORY] ? [CUSTOM_CATEGORY] : [])
       ];
 
       const partsList = document.getElementById('parts-list');
-      if (allItems.length === 0) {
+      const totalItemCount = resolved.length + customParts.length;
+      if (totalItemCount === 0) {
         partsList.innerHTML = '<p style="font-size:14px;color:var(--text-muted);padding:8px 0;">No parts listed.</p>';
       } else {
-        partsList.innerHTML = allItems.map(item => {
-          const noteHtml = item.notes ? `<div class="part-row-note">${esc(item.notes)}</div>` : '';
-          const customBadge = item.isCustom ? `<div class="part-row-note" style="color:var(--accent);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.05em">Custom</div>` : '';
-          return `<label class="part-row">
-            <input type="checkbox" checked data-price="${item.price}" data-name="${esc(item.name)}">
-            <div class="part-row-info">
-              ${customBadge}
-              <div class="part-row-name">${esc(item.name)}</div>
-              ${noteHtml}
-            </div>
-            <div class="part-row-price">${item.priceLabel}</div>
-          </label>`;
+        partsList.innerHTML = orderedCategories.map(cat => {
+          const items = grouped[cat];
+          const subtotal = items.reduce((s, it) => s + it.price, 0);
+          const hasPOA = items.some(it => it.isPOA);
+          const showSubtotal = items.length > 1;
+          const rowsHtml = items.map(item => {
+            const noteHtml = item.notes ? `<div class="part-row-note">${esc(item.notes)}</div>` : '';
+            return `<label class="part-row">
+              <input type="checkbox" checked data-price="${item.price}" data-name="${esc(item.name)}"${item.isPOA ? ' data-poa="1"' : ''}>
+              <div class="part-row-info">
+                <div class="part-row-name">${esc(item.name)}</div>
+                ${noteHtml}
+              </div>
+              <div class="part-row-price">${item.priceLabel}</div>
+            </label>`;
+          }).join('');
+          const subtotalHtml = showSubtotal
+            ? `<div class="category-subtotal">
+                 <span class="category-subtotal-label">Subtotal<span class="category-subtotal-mark"${hasPOA ? '' : ' style="display:none"'}>*</span></span>
+                 <span class="category-subtotal-value">${fmt(subtotal)}</span>
+               </div>`
+            : '';
+          return `<div class="category-group" data-category="${esc(cat)}">
+            <div class="category-group-label">${esc(cat)}</div>
+            ${rowsHtml}
+            ${subtotalHtml}
+          </div>`;
         }).join('');
       }
 
       // Initial total
       updateTotal();
 
-      // Live total on checkbox change
+      // Live total + per-category subtotal on checkbox change
       partsList.addEventListener('change', e => {
         const row = e.target.closest('.part-row');
         if (row) row.classList.toggle('removed', !e.target.checked);
+        const section = e.target.closest('.category-group');
+        if (section) updateCategorySubtotal(section);
         updateTotal();
         updateApproveButton();
       });
@@ -704,6 +830,12 @@
         const notesText = document.getElementById('customer-notes').value.trim();
         notesPrint.textContent = notesText;
         section.classList.toggle('print-hide-empty', !notesText);
+        // Hide category groups whose items are all unchecked so the printout
+        // doesn't show an orphan header with no rows.
+        document.querySelectorAll('.category-group').forEach(group => {
+          const anyChecked = !!group.querySelector('input[type="checkbox"]:checked');
+          group.classList.toggle('print-hide-empty', !anyChecked);
+        });
         window.print();
       });
 
