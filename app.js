@@ -46,7 +46,7 @@ const state = {
   status: 'draft',
   notes: '',
   estimates: JSON.parse(localStorage.getItem('vm_estimates') || '[]'),
-  homeFilter: { query: '', status: 'all' }
+  homeFilter: { query: '', status: 'all', sort: 'updated' }
 };
 
 // === UTILS ===
@@ -157,6 +157,34 @@ function matchesHomeFilter(est) {
   return matchesHomeQuery(est, query);
 }
 
+const SORT_OPTIONS = [
+  { value: 'updated', label: 'Recently updated' },
+  { value: 'created', label: 'Recently created' },
+  { value: 'total-desc', label: 'Total (high to low)' },
+  { value: 'total-asc', label: 'Total (low to high)' },
+  { value: 'name', label: 'Customer name (A–Z)' }
+];
+
+function getSortComparator(sort) {
+  switch (sort) {
+    case 'created':
+      return (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
+    case 'total-desc':
+      return (a, b) => (b.total || 0) - (a.total || 0)
+        || new Date(b.updatedAt) - new Date(a.updatedAt);
+    case 'total-asc':
+      return (a, b) => (a.total || 0) - (b.total || 0)
+        || new Date(b.updatedAt) - new Date(a.updatedAt);
+    case 'name':
+      return (a, b) => (a.customer?.name || '').localeCompare(
+        b.customer?.name || '', undefined, { sensitivity: 'base' })
+        || new Date(b.updatedAt) - new Date(a.updatedAt);
+    case 'updated':
+    default:
+      return (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt);
+  }
+}
+
 // Updates the count badge on each status chip. Counts reflect search-matching
 // estimates (ignoring the active status filter) so users see how many results
 // each status holds without first clearing their search.
@@ -204,10 +232,24 @@ function renderHome() {
   }
   noResults.style.display = 'none';
 
-  const sorted = filtered.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  const sortKey = state.homeFilter.sort || 'updated';
+  const sorted = filtered.slice().sort(getSortComparator(sortKey));
+
+  const sortOptionsHtml = SORT_OPTIONS.map(opt =>
+    `<option value="${opt.value}"${opt.value === sortKey ? ' selected' : ''}>${esc(opt.label)}</option>`
+  ).join('');
 
   list.innerHTML = `
-    <div class="home-section-label">Recent Estimates</div>
+    <div class="home-section-header">
+      <div class="home-section-label">Recent Estimates</div>
+      <label class="home-sort">
+        <span class="home-sort-label">Sort</span>
+        <select id="home-sort-select" class="home-sort-select" aria-label="Sort estimates">
+          ${sortOptionsHtml}
+        </select>
+        <span class="home-sort-chevron" aria-hidden="true">&#9662;</span>
+      </label>
+    </div>
     ${sorted.map(est => {
       const vehicleStr = buildVehicleString(est.vehicle) || 'Vehicle not specified';
       const date = new Date(est.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -1081,6 +1123,14 @@ document.addEventListener('DOMContentLoaded', () => {
       renderHome();
     });
   }
+
+  // Sort selector — delegated because the <select> is rebuilt on every renderHome.
+  document.getElementById('view-home').addEventListener('change', e => {
+    if (e.target.id === 'home-sort-select') {
+      state.homeFilter.sort = e.target.value;
+      renderHome();
+    }
+  });
 
   const estList = document.getElementById('estimates-list');
 
