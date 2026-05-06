@@ -157,6 +157,39 @@ function matchesHomeFilter(est) {
   return matchesHomeQuery(est, query);
 }
 
+// Pipeline/revenue summary above the estimate list. Reflects the currently
+// visible estimates (status filter + search), so the shop owner sees
+// "$45k across 8 shared" when filtered to shared, or lifetime revenue under
+// the approved chip. Hidden when nothing is visible (empty / no-results).
+const STATUS_LABELS = {
+  all: 'estimate',
+  draft: 'draft',
+  shared: 'shared estimate',
+  approved: 'approved estimate',
+  declined: 'declined estimate',
+  deferred: 'deferred estimate'
+};
+
+function renderHomeSummary(filtered) {
+  const summary = document.getElementById('home-summary');
+  const countEl = document.getElementById('home-summary-count');
+  const totalEl = document.getElementById('home-summary-total');
+  if (!summary || !countEl || !totalEl) return;
+
+  if (filtered.length === 0) {
+    summary.hidden = true;
+    return;
+  }
+
+  const total = filtered.reduce((s, e) => s + (e.total || 0), 0);
+  const noun = STATUS_LABELS[state.homeFilter.status] || 'estimate';
+  const plural = filtered.length === 1 ? noun : noun + 's';
+
+  countEl.textContent = `${filtered.length} ${plural}`;
+  totalEl.textContent = fmt(total);
+  summary.hidden = false;
+}
+
 // Updates the count badge on each status chip. Counts reflect search-matching
 // estimates (ignoring the active status filter) so users see how many results
 // each status holds without first clearing their search.
@@ -189,6 +222,7 @@ function renderHome() {
     list.innerHTML = '';
     empty.style.display = 'block';
     noResults.style.display = 'none';
+    renderHomeSummary([]);
     return;
   }
   empty.style.display = 'none';
@@ -197,6 +231,7 @@ function renderHome() {
   updateFilterChipCounts(searchMatches);
 
   const filtered = visible.filter(matchesHomeFilter);
+  renderHomeSummary(filtered);
   if (filtered.length === 0) {
     list.innerHTML = '';
     noResults.style.display = 'block';
@@ -207,7 +242,6 @@ function renderHome() {
   const sorted = filtered.slice().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
   list.innerHTML = `
-    <div class="home-section-label">Recent Estimates</div>
     ${sorted.map(est => {
       const vehicleStr = buildVehicleString(est.vehicle) || 'Vehicle not specified';
       const date = new Date(est.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
