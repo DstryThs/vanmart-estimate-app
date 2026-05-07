@@ -40,6 +40,62 @@ function doPost(e) {
   }
 }
 
+function doGet(e) {
+  try {
+    const id = e && e.parameter && e.parameter.id;
+    if (!id) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: 'Missing id' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    const sheet = getSheet_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: 'Not found' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    const data = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+    const row = data.find(r => r[colIndex_('id')] === id);
+    if (!row) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: 'Not found' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    // parts_json stores [{id, name, category, price}]. Custom parts use category: 'Custom'
+    // (set by buildSyncPayload in app.js). Keep this label in sync if it ever changes.
+    const parts = JSON.parse(row[colIndex_('parts_json')] || '[]');
+    const selectedParts = parts.filter(p => p.category !== 'Custom').map(p => p.id);
+    const customParts   = parts.filter(p => p.category === 'Custom')
+                               .map(p => ({ id: p.id, name: p.name, price: p.price }));
+    const payload = {
+      v: 1,
+      customer: {
+        name:  row[colIndex_('customer_name')]  || undefined,
+        phone: row[colIndex_('customer_phone')] || undefined,
+        email: row[colIndex_('customer_email')] || undefined,
+      },
+      vehicle: {
+        year:      row[colIndex_('year')]      || undefined,
+        make:      row[colIndex_('make')]      || undefined,
+        model:     row[colIndex_('model')]     || undefined,
+        wheelbase: row[colIndex_('wheelbase')] || undefined,
+      },
+      selectedParts,
+      customParts,
+      total:     Number(row[colIndex_('total')]) || 0,
+      createdAt: String(row[colIndex_('created_at')] || '').split('T')[0],
+    };
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true, payload }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 function getSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);

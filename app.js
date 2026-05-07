@@ -720,7 +720,8 @@ function renderEstimate() {
 }
 
 // === SHARE ===
-function encodeEstimateForURL(est) {
+// Fallback: encode full estimate in URL hash for unsynced estimates.
+function encodeEstimateForURLFallback(est) {
   const c = est.customer || {};
   const customer = { name: c.name };
   if (c.phone) customer.phone = c.phone;
@@ -742,15 +743,34 @@ function encodeEstimateForURL(est) {
   return BASE_URL + '/view.html#' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-function shareEstimate(est) {
-  const url = encodeEstimateForURL(est);
+async function shareEstimate(est) {
+  const customerName = est.customer?.name || 'Customer';
+
+  // Read synced status now — markShared() resets est.synced to false immediately.
+  const wasSynced = est.synced === true;
+  let url = null;
+
+  if (SHEETS_WEBHOOK_URL && wasSynced) {
+    try {
+      const resp = await Promise.race([
+        fetch(SHEETS_WEBHOOK_URL + '?id=' + encodeURIComponent(est.id)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3500))
+      ]);
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json.ok) url = BASE_URL + '/view.html?id=' + encodeURIComponent(est.id);
+      }
+    } catch (_) { /* network/timeout — fall through to hash fallback */ }
+  }
+
+  if (!url) url = encodeEstimateForURLFallback(est);
+
   markShared(est.id);
 
-  const customerName = est.customer?.name || 'Customer';
   if (navigator.share) {
     navigator.share({
       title: `${customerName} — Van Mart Estimate`,
-      text: `${customerName} — Van Mart Estimate`,
+      text:  `${customerName} — Van Mart Estimate`,
       url
     }).catch(() => {});
   } else {

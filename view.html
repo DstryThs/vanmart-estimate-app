@@ -567,6 +567,7 @@
 
     const SHOP_PHONE = '657-222-8016';
     const SHOP_EMAIL = 'mikec@thevanmart.com';
+    const SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbx7ZzFPl3ldsv4oy_3F_q-TIGgZWHAC1MlJvdQrDWwSR1jVEzzHQh5sDHXMxFuUnT7jEw/exec';
 
     // Canonical category order — mirrors app.js so the customer sees the same
     // grouping the shop sees internally. Custom items always render last.
@@ -898,16 +899,44 @@
       });
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const payload = decodeHash(location.hash);
+    document.addEventListener('DOMContentLoaded', async () => {
+      const idParam = new URLSearchParams(location.search).get('id');
 
-      if (!payload || !payload.selectedParts || !Array.isArray(payload.selectedParts)) {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('error').style.display = '';
-        return;
+      if (idParam) {
+        try {
+          const resp = await Promise.race([
+            fetch(SHEETS_WEBHOOK_URL + '?id=' + encodeURIComponent(idParam)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+          ]);
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const data = await resp.json();
+          if (!data.ok || !data.payload) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-message').textContent =
+              'This estimate could not be found. The link may be incorrect, or please contact The Van Mart.';
+            document.getElementById('error').style.display = '';
+            return;
+          }
+          renderPage(data.payload);
+        } catch (err) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error-message').textContent =
+            err.message === 'timeout'
+              ? 'This estimate is taking too long to load. Check your connection and try again.'
+              : 'Could not load this estimate. Check your connection and try again.';
+          document.getElementById('error').style.display = '';
+          return;
+        }
+      } else {
+        // Legacy hash path — backwards compat with existing shared links.
+        const payload = decodeHash(location.hash);
+        if (!payload || !payload.selectedParts || !Array.isArray(payload.selectedParts)) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error').style.display = '';
+          return;
+        }
+        renderPage(payload);
       }
-
-      renderPage(payload);
 
       document.getElementById('loading').style.display = 'none';
       document.getElementById('estimate-view').style.display = '';
