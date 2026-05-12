@@ -1359,3 +1359,56 @@ body {
   }
   .print-shop-info strong { color: #000; font-size: 12px; }
 }
+
+/* === PIN GATE === */
+#pin-gate {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+}
+
+.pin-gate-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 24px;
+}
+
+.pin-gate-label {
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+#pin-input {
+  width: 160px;
+  text-align: center;
+  font-size: 28px;
+  letter-spacing: 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: var(--surface);
+  font-family: var(--font);
+  -webkit-text-security: disc;
+}
+
+#pin-input:focus {
+  outline: none;
+  border-color: var(--selected-border);
+}
+
+.pin-error {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pin-gate-btn {
+  width: 160px;
+}

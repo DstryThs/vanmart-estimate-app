@@ -17,6 +17,7 @@ const STATUS_VALUES = ['draft', 'shared', 'approved', 'declined', 'deferred', 'c
 // Customer-facing estimate page — resolves to the directory the app is served from.
 const BASE_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
 const SHOP_PHONE = '657-222-8016';
+const SHOP_PIN = '1914';
 const SHOP_EMAIL = 'mikec@thevanmart.com';
 
 // Brand logo mark — 2×2 grid icon (sun, waves, mountain, pine tree).
@@ -1117,6 +1118,38 @@ function syncPending() {
 
 // === EVENT LISTENERS ===
 document.addEventListener('DOMContentLoaded', () => {
+
+  // PIN gate
+  const pinGate = document.getElementById('pin-gate');
+  const appEl   = document.getElementById('app');
+
+  function unlockApp() {
+    sessionStorage.setItem('vm_unlocked', '1');
+    pinGate.style.display = 'none';
+    appEl.style.display   = '';
+  }
+
+  if (sessionStorage.getItem('vm_unlocked') === '1') {
+    unlockApp();
+  } else {
+    const pinInput  = document.getElementById('pin-input');
+    const pinError  = document.getElementById('pin-error');
+    const pinSubmit = document.getElementById('pin-submit');
+
+    function tryUnlock() {
+      if (pinInput.value === SHOP_PIN) {
+        unlockApp();
+      } else {
+        pinError.hidden = false;
+        pinInput.value  = '';
+        pinInput.focus();
+      }
+    }
+
+    pinSubmit.addEventListener('click', tryUnlock);
+    pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+    pinInput.focus();
+  }
 
   // Home
   document.getElementById('btn-new-estimate').addEventListener('click', startNew);
