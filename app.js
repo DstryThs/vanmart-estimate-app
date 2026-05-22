@@ -6,7 +6,7 @@
 const SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbx7ZzFPl3ldsv4oy_3F_q-TIGgZWHAC1MlJvdQrDWwSR1jVEzzHQh5sDHXMxFuUnT7jEw/exec';
 
 // Schema version for downstream-agent compatibility. Bump when payload shape changes.
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 // Default silence-follow-up window for the downstream follow-up agent.
 // Not used by the PWA itself - kept here so the value is co-located with the app.
@@ -47,7 +47,8 @@ const state = {
   status: 'draft',
   notes: '',
   estimates: JSON.parse(localStorage.getItem('vm_estimates') || '[]'),
-  homeFilter: { query: '', status: 'all', sort: 'updated' }
+  homeFilter: { query: '', status: 'all', sort: 'updated' },
+  upsells: []       // [{ id, productId, name, price, rationale, included, priceEdited }]
 };
 
 // === UTILS ===
@@ -293,6 +294,7 @@ function resetState() {
   state.vehicle = {};
   state.selected = new Set();
   state.customParts = [];
+  state.upsells = [];
   state.sharedAt = null;
   state.status = 'draft';
   state.notes = '';
@@ -320,6 +322,7 @@ function loadEstimate(id) {
   state.vehicle = { ...est.vehicle };
   state.selected = new Set(est.selectedParts);
   state.customParts = (est.customParts || []).map(cp => ({ ...cp }));
+  state.upsells = (est.upsells || []).map(u => ({ ...u, included: true, priceEdited: u.price > 0 && !UPSELL_CATALOG[u.id]?.productId }));
   state.sharedAt = est.sharedAt || null;
   state.status = est.status || 'draft';
   state.notes = est.notes || '';
@@ -340,6 +343,7 @@ function duplicateEstimate(id) {
   state.vehicle = { ...src.vehicle };
   state.selected = new Set(src.selectedParts);
   state.customParts = (src.customParts || []).map(cp => ({ ...cp }));
+  state.upsells = (src.upsells || []).map(u => ({ ...u, included: true }));
   state.sharedAt = null;
   state.status = 'draft';
   state.notes = '';
@@ -369,12 +373,124 @@ const CATEGORIES = [
   'Windows', 'Capsules', 'Audio', 'Electrical & Power', 'Water Systems', 'Climate', 'Interior'
 ];
 
+// === UPSELL RECOMMENDATIONS ===
+// Stable catalog keyed by a fixed id -- persists across re-renders and save/load cycles.
+// productId: references a PRODUCTS entry (price auto-resolved); null = manual POA item.
+const UPSELL_CATALOG = {
+  'rec-footrest': {
+    productId: 'VNMRT-002',
+    rationale: "Since we're already working inside for this install, adding footrest storage now is the most efficient time. It overlaps with the access work and avoids a return trip."
+  },
+  'rec-side-ladder': {
+    productId: 'VS-015',
+    rationale: "Exterior installs pair naturally with a side ladder. It makes roof access easy right away and takes no extra trip to add while we're already set up."
+  },
+  'rec-maxxfan': {
+    productId: 'TP-00-07500K',
+    rationale: "Adding a vent fan while we're already inside is the most efficient time. The roof cutout and wiring happen in the same appointment."
+  },
+  'rec-airplus-fan': {
+    productId: 'TP-NOMADIC-AIRPLUS-FAN',
+    rationale: "A lower-profile fan option that pairs well with this install. Runs quietly on battery and does not require an additional roof cutout."
+  },
+  'rec-agm-battery': {
+    productId: 'KT-EXTRA-BATTERY-AGM',
+    rationale: "Customers who invest in electrical work often want more battery capacity than they initially expect. Adding a second AGM battery now is significantly cheaper than a return visit."
+  },
+  'rec-stealthshade': {
+    productId: 'TP-STEALTHSHADE-CURTAIN',
+    rationale: "Most capsule customers complete the setup with a StealthShade curtain. Simple add that is most efficient during the same appointment."
+  },
+  'rec-rack-lighting': {
+    productId: 'KT-DAKAR-RACK-LIGHTING',
+    rationale: "The rack is pre-drilled for lights. Adding the lighting system now means one wiring run instead of two -- brackets and harness go in as part of the same install."
+  },
+  'rec-cable-passthrough': {
+    productId: 'VS-075',
+    rationale: "Running wiring for rack lighting requires a weatherproof cable pass-through. This kit keeps the entry point clean and prevents water intrusion."
+  },
+  'rec-center-console': {
+    productId: null,
+    name: 'Center Console',
+    rationale: "Since we're routing wiring for the electrical work, adding a center console now reduces the labor overlap. It costs less than scheduling it as a separate job."
+  },
+  'rec-usb-panel': {
+    productId: null,
+    name: 'USB Charging Panel',
+    rationale: "A USB charging panel is a natural complement to any electrical install and takes minimal time to add while the wiring work is underway."
+  }
+};
+
+// Trigger rules: when selected items match, surface the listed suggestions.
+const UPSELL_RULES = [
+  { triggers: { productIds: ['VS-005-144', 'VS-005-170'] }, suggestionIds: ['rec-footrest', 'rec-side-ladder'] },
+  { triggers: { categories: ['Capsules'] },                  suggestionIds: ['rec-footrest', 'rec-maxxfan', 'rec-stealthshade'] },
+  { triggers: { categories: ['Windows'] },                   suggestionIds: ['rec-maxxfan', 'rec-airplus-fan'] },
+  { triggers: { categories: ['Electrical & Power'] },        suggestionIds: ['rec-agm-battery', 'rec-center-console', 'rec-usb-panel'] },
+  { triggers: { categories: ['Roof Racks & Lighting'] },     suggestionIds: ['rec-side-ladder', 'rec-rack-lighting', 'rec-cable-passthrough'] }
+];
+
 function getVisibleProducts() {
   const wb = state.vehicle.wheelbase;
   if (!wb || wb === 'both') return PRODUCTS;
   return PRODUCTS.filter(p => {
     if (!p.fitment || p.fitment.length === 0) return true;
     return p.fitment.some(f => f.includes(wb));
+  });
+}
+
+// Compute which add-on suggestions apply to the current parts selection.
+// Returns a fresh array; does not modify state.upsells.
+function getSuggestedUpsells() {
+  const selectedIds = [...state.selected];
+  const selectedCats = new Set(
+    selectedIds.map(id => PRODUCTS.find(p => p.id === id)?.category).filter(Boolean)
+  );
+  const seenIds = new Set();
+  const results = [];
+
+  UPSELL_RULES.forEach(rule => {
+    const triggered =
+      (rule.triggers.productIds && rule.triggers.productIds.some(id => selectedIds.includes(id))) ||
+      (rule.triggers.categories && rule.triggers.categories.some(cat => selectedCats.has(cat)));
+    if (!triggered) return;
+
+    rule.suggestionIds.forEach(sid => {
+      if (seenIds.has(sid)) return;
+      const def = UPSELL_CATALOG[sid];
+      if (!def) return;
+      // Skip items the customer already has
+      if (def.productId && selectedIds.includes(def.productId)) return;
+      seenIds.add(sid);
+      const product = def.productId ? PRODUCTS.find(p => p.id === def.productId) : null;
+      results.push({
+        id: sid,
+        productId: def.productId || null,
+        name: product ? product.name : (def.name || sid),
+        price: product ? product.installedPrice : 0,
+        rationale: def.rationale,
+        included: false,
+        priceEdited: false
+      });
+    });
+  });
+  return results;
+}
+
+// Re-compute suggestions and merge with existing state.upsells,
+// preserving any edits Mike has made (include toggle, rationale text, custom price).
+function refreshUpsells() {
+  const fresh = getSuggestedUpsells();
+  state.upsells = fresh.map(sugg => {
+    const existing = state.upsells.find(u => u.id === sugg.id);
+    if (!existing) return sugg;
+    return {
+      ...sugg,
+      included:    existing.included,
+      rationale:   existing.rationale,
+      price:       existing.priceEdited ? existing.price : sugg.price,
+      priceEdited: existing.priceEdited
+    };
   });
 }
 
@@ -585,6 +701,7 @@ function calcTotal(products) {
 }
 
 function renderEstimate() {
+  refreshUpsells();
   const allItems = getAllSelectedItems();
   const total = calcTotal(allItems);
   const c = state.customer;
@@ -674,10 +791,7 @@ function renderEstimate() {
       </div>
     ` : ''}
 
-    <div class="estimate-total-block">
-      <span class="estimate-total-label">Estimated Total</span>
-      <span class="estimate-total-value">${fmt(total)}</span>
-    </div>
+    <div id="estimate-upsell-area"></div>
 
     <p class="estimate-disclaimer">
       This is an estimate only. Final pricing subject to vehicle inspection and part availability.
@@ -691,6 +805,14 @@ function renderEstimate() {
     <div class="print-shop-info">
       <strong>The Van Mart</strong><br>
       ${esc(SHOP_PHONE)} &nbsp;&middot;&nbsp; ${esc(SHOP_EMAIL)}
+    </div>
+
+    <div class="upsell-builder-section">
+      <div class="upsell-builder-header">
+        <span class="upsell-builder-title">Recommended Add-ons</span>
+        <span class="upsell-builder-hint">Check items to include on this estimate</span>
+      </div>
+      <div id="upsell-builder"></div>
     </div>
 
     ${state.currentId ? `
@@ -718,6 +840,85 @@ function renderEstimate() {
   if (statusEl) statusEl.value = state.status || 'draft';
   const notesEl = document.getElementById('estimate-notes');
   if (notesEl) notesEl.value = state.notes || '';
+
+  renderUpsellArea();
+  renderUpsellBuilder();
+}
+
+// Renders the customer-facing upsell section + total into #estimate-upsell-area.
+// Called after renderEstimate() sets up the DOM, and again whenever Mike toggles a upsell.
+function renderUpsellArea() {
+  const area = document.getElementById('estimate-upsell-area');
+  if (!area) return;
+  const primaryTotal = calcTotal(getAllSelectedItems());
+  const included = state.upsells.filter(u => u.included);
+  const upsellTotal = included.reduce((s, u) => s + (u.price || 0), 0);
+
+  if (included.length === 0) {
+    area.innerHTML = `
+      <div class="estimate-total-block">
+        <span class="estimate-total-label">Estimated Total</span>
+        <span class="estimate-total-value">${fmt(primaryTotal)}</span>
+      </div>`;
+    return;
+  }
+
+  area.innerHTML = `
+    <div class="estimate-section upsell-callout-section">
+      <div class="estimate-section-label">Recommended for your van</div>
+      ${included.map(u => `
+        <div class="upsell-callout-item">
+          <div class="upsell-callout-header">
+            <span class="upsell-callout-name">${esc(u.name)}</span>
+            <span class="upsell-callout-price">${u.price > 0 ? fmt(u.price) : 'POA'}</span>
+          </div>
+          <p class="upsell-callout-rationale">${esc(u.rationale)}</p>
+        </div>
+      `).join('')}
+    </div>
+    <div class="estimate-dual-total">
+      <div class="dual-row">
+        <span class="dual-label">Your requested items</span>
+        <span class="dual-value">${fmt(primaryTotal)}</span>
+      </div>
+      <div class="dual-row dual-row-highlight">
+        <span class="dual-label">With recommendations</span>
+        <span class="dual-value">${fmt(primaryTotal + upsellTotal)}</span>
+      </div>
+    </div>`;
+}
+
+// Renders the Mike-only upsell builder into #upsell-builder.
+function renderUpsellBuilder() {
+  const builder = document.getElementById('upsell-builder');
+  if (!builder) return;
+  if (state.upsells.length === 0) {
+    builder.innerHTML = '<p class="upsell-empty">No add-on suggestions for the selected items.</p>';
+    return;
+  }
+  builder.innerHTML = state.upsells.map(u => {
+    const isPOA = !u.productId;
+    return `
+    <div class="upsell-builder-item${u.included ? ' included' : ''}" data-upsell-id="${esc(u.id)}">
+      <label class="upsell-item-label">
+        <div class="upsell-item-check-wrap">
+          <input type="checkbox" class="upsell-item-check" data-upsell-id="${esc(u.id)}"${u.included ? ' checked' : ''}>
+        </div>
+        <div class="upsell-item-body">
+          <div class="upsell-item-header">
+            <span class="upsell-item-name">${esc(u.name)}</span>
+            ${isPOA
+              ? `<input type="text" class="upsell-item-price-input" data-upsell-id="${esc(u.id)}"
+                   value="${u.price > 0 ? u.price : ''}" placeholder="Enter price" inputmode="decimal" autocomplete="off">`
+              : `<span class="upsell-item-price">${fmt(u.price)}</span>`
+            }
+          </div>
+          <textarea class="upsell-item-rationale" data-upsell-id="${esc(u.id)}"
+                    rows="2" placeholder="Rationale shown to customer">${esc(u.rationale)}</textarea>
+        </div>
+      </label>
+    </div>`;
+  }).join('');
 }
 
 // === SHARE ===
@@ -738,6 +939,8 @@ function encodeEstimateForURLFallback(est) {
   };
   const customParts = est.customParts || [];
   if (customParts.length) payload.customParts = customParts;
+  const upsells = est.upsells || [];
+  if (upsells.length) payload.upsells = upsells;
 
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
   const b64 = btoa(String.fromCharCode(...bytes));
@@ -1017,6 +1220,9 @@ function saveEstimate() {
     vehicle: { ...state.vehicle },
     selectedParts: [...state.selected],
     customParts: state.customParts.map(cp => ({ ...cp })),
+    upsells: state.upsells
+      .filter(u => u.included)
+      .map(u => ({ id: u.id, productId: u.productId || null, name: u.name, price: u.price, rationale: u.rationale })),
     total,
     synced: false
   };
@@ -1055,6 +1261,26 @@ function debouncedPersistNotes() {
   notesDebounce = setTimeout(persistCurrent, 800);
 }
 
+// Persist upsell state (include flags, edited rationales/prices) without the "Saved!" flash.
+function persistUpsells() {
+  if (!state.currentId) return;
+  const est = state.estimates.find(e => e.id === state.currentId);
+  if (!est) return;
+  est.upsells = state.upsells
+    .filter(u => u.included)
+    .map(u => ({ id: u.id, productId: u.productId || null, name: u.name, price: u.price, rationale: u.rationale }));
+  est.updatedAt = new Date().toISOString();
+  est.synced = false;
+  saveToStorage();
+  syncEstimate(est);
+}
+
+let upsellDebounce = null;
+function debouncedPersistUpsells() {
+  clearTimeout(upsellDebounce);
+  upsellDebounce = setTimeout(persistUpsells, 800);
+}
+
 // === CLOUD SYNC (Google Sheets) ===
 function buildSyncPayload(est) {
   const products = est.selectedParts
@@ -1086,7 +1312,8 @@ function buildSyncPayload(est) {
     wheelbase: v.wheelbase || '',
     partCount: allParts.length,
     total: est.total,
-    parts: allParts
+    parts: allParts,
+    upsells: est.upsells || []
   };
 }
 
@@ -1518,12 +1745,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.id === 'estimate-status') {
       state.status = e.target.value;
       persistCurrent();
+      return;
+    }
+    // Upsell include toggle
+    if (e.target.classList.contains('upsell-item-check')) {
+      const uid = e.target.dataset.upsellId;
+      const u = state.upsells.find(x => x.id === uid);
+      if (!u) return;
+      u.included = e.target.checked;
+      // Update row highlight without full re-render
+      const row = document.querySelector(`.upsell-builder-item[data-upsell-id="${uid}"]`);
+      if (row) row.classList.toggle('included', u.included);
+      renderUpsellArea();
+      debouncedPersistUpsells();
     }
   });
   estimateContent.addEventListener('input', e => {
     if (e.target.id === 'estimate-notes') {
       state.notes = e.target.value;
       debouncedPersistNotes();
+      return;
+    }
+    // Upsell rationale edit
+    if (e.target.classList.contains('upsell-item-rationale')) {
+      const uid = e.target.dataset.upsellId;
+      const u = state.upsells.find(x => x.id === uid);
+      if (u) {
+        u.rationale = e.target.value;
+        // Refresh customer-facing callout text live if included
+        if (u.included) renderUpsellArea();
+        debouncedPersistUpsells();
+      }
+      return;
+    }
+    // Upsell price input (POA items)
+    if (e.target.classList.contains('upsell-item-price-input')) {
+      const uid = e.target.dataset.upsellId;
+      const u = state.upsells.find(x => x.id === uid);
+      if (u) {
+        const parsed = parseFloat(String(e.target.value).replace(/[^0-9.]/g, ''));
+        u.price = isNaN(parsed) ? 0 : parsed;
+        u.priceEdited = true;
+        if (u.included) renderUpsellArea();
+        debouncedPersistUpsells();
+      }
     }
   });
   estimateContent.addEventListener('click', e => {

@@ -23,7 +23,7 @@ const HEADERS = [
   'customer_name', 'customer_phone', 'customer_email',
   'vehicle', 'year', 'make', 'model', 'wheelbase',
   'part_count', 'total', 'parts_json',
-  'schema_version', 'shared_at', 'status', 'notes'
+  'schema_version', 'shared_at', 'status', 'notes', 'upsells_json'
 ];
 
 function doPost(e) {
@@ -68,6 +68,7 @@ function doGet(e) {
     const selectedParts = parts.filter(p => p.category !== 'Custom').map(p => p.id);
     const customParts   = parts.filter(p => p.category === 'Custom')
                                .map(p => ({ id: p.id, name: p.name, price: p.price }));
+    const upsells = JSON.parse(row[colIndex_('upsells_json')] || '[]');
     const payload = {
       v: 1,
       customer: {
@@ -83,6 +84,7 @@ function doGet(e) {
       },
       selectedParts,
       customParts,
+      upsells,
       total:     Number(row[colIndex_('total')]) || 0,
       createdAt: String(row[colIndex_('created_at')] || '').split('T')[0],
     };
@@ -141,6 +143,7 @@ function rowFromPayload_(d) {
   row[colIndex_('shared_at')]      = d.sharedAt || '';
   row[colIndex_('status')]         = d.status || 'draft';
   row[colIndex_('notes')]          = d.notes || '';
+  row[colIndex_('upsells_json')]   = JSON.stringify(d.upsells || []);
   return row;
 }
 

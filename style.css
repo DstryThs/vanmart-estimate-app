@@ -1301,7 +1301,30 @@ body {
   .estimate-card-actions,
   .estimate-card-menu,
   .btn-print-estimate,
-  .internal-section { display: none !important; }
+  .internal-section,
+  .upsell-builder-section { display: none !important; }
+
+  /* Upsell callout section — keep but flatten for print */
+  .upsell-callout-section {
+    background: transparent !important;
+    border: 1.5px solid #000 !important;
+    border-radius: 0 !important;
+    page-break-inside: avoid;
+  }
+  .upsell-callout-section .estimate-section-label { color: #000 !important; }
+  .upsell-callout-rationale { color: #333 !important; }
+
+  /* Dual total — print flat */
+  .estimate-dual-total {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    page-break-inside: avoid;
+  }
+  .dual-row { border-bottom: 1px solid #ddd !important; }
+  .dual-row-highlight { background: #fff !important; border: 2px solid #000 !important; }
+  .dual-row-highlight .dual-label { color: #000 !important; }
+  .dual-row-highlight .dual-value { color: #000 !important; }
 
   .content,
   .content-parts { padding: 0 !important; overflow: visible !important; }
@@ -1411,4 +1434,261 @@ body {
 
 .pin-gate-btn {
   width: 160px;
+}
+
+/* === UPSELL BUILDER (Mike-facing, estimate view) === */
+.upsell-builder-section {
+  border: 1px dashed rgba(201, 107, 26, 0.4);
+  background: #FFF8F0;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.upsell-builder-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(201, 107, 26, 0.2);
+}
+
+.upsell-builder-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.upsell-builder-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.upsell-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 4px 0;
+  font-style: italic;
+}
+
+.upsell-builder-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.upsell-builder-item:last-child { border-bottom: none; }
+
+.upsell-builder-item.included {
+  background: var(--selected-bg);
+  border-radius: 8px;
+  padding: 10px 8px;
+  margin: 2px -8px;
+  border-bottom: none;
+}
+
+.upsell-item-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.upsell-item-check-wrap {
+  flex-shrink: 0;
+  padding-top: 3px;
+}
+
+.upsell-item-check-wrap input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  position: relative;
+  vertical-align: middle;
+}
+
+.upsell-item-check-wrap input[type="checkbox"]:checked {
+  background: var(--selected-border);
+  border-color: var(--selected-border);
+}
+
+.upsell-item-check-wrap input[type="checkbox"]:checked::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 8px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg) translate(-1px, -1px);
+  position: absolute;
+}
+
+.upsell-item-body { flex: 1; min-width: 0; }
+
+.upsell-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.upsell-item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.upsell-item-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.upsell-item-price-input {
+  width: 108px;
+  flex-shrink: 0;
+  padding: 5px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  font-family: var(--font);
+  outline: none;
+  text-align: right;
+}
+
+.upsell-item-price-input:focus { border-color: var(--selected-border); }
+.upsell-item-price-input::placeholder { font-weight: 400; color: var(--text-muted); }
+
+.upsell-item-rationale {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  font-family: var(--font);
+  resize: vertical;
+  min-height: 52px;
+  line-height: 1.4;
+  outline: none;
+}
+
+.upsell-item-rationale:focus { border-color: var(--selected-border); background: #fff; }
+
+/* === UPSELL CALLOUT (customer-facing section on estimate) === */
+.upsell-callout-section {
+  background: var(--selected-bg);
+  border: 1.5px solid var(--selected-border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.upsell-callout-section .estimate-section-label {
+  color: var(--selected-border);
+}
+
+.upsell-callout-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(95, 125, 69, 0.18);
+}
+
+.upsell-callout-item:last-child { border-bottom: none; padding-bottom: 2px; }
+
+.upsell-callout-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.upsell-callout-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  line-height: 1.3;
+}
+
+.upsell-callout-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.upsell-callout-rationale {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* === DUAL TOTAL (primary + with recommendations) === */
+.estimate-dual-total {
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+}
+
+.dual-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dual-row:last-child { border-bottom: none; }
+
+.dual-label {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.dual-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.dual-row-highlight {
+  background: var(--primary);
+}
+
+.dual-row-highlight .dual-label {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
+
+.dual-row-highlight .dual-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
 }

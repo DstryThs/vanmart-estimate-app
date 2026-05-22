@@ -516,10 +516,15 @@
         <div id="parts-list"></div>
       </div>
 
-      <!-- LIVE TOTAL -->
-      <div class="estimate-total-block">
-        <span class="estimate-total-label">Estimated Total</span>
-        <span class="estimate-total-value" id="running-total">$0.00</span>
+      <!-- UPSELL RECOMMENDATIONS (populated by renderPage when upsells are present) -->
+      <div id="upsell-section"></div>
+
+      <!-- LIVE TOTAL (replaced with dual layout by renderPage when upsells exist) -->
+      <div id="total-container">
+        <div class="estimate-total-block">
+          <span class="estimate-total-label">Estimated Total</span>
+          <span class="estimate-total-value" id="running-total">$0.00</span>
+        </div>
       </div>
 
       <!-- NOTES -->
@@ -597,6 +602,9 @@
       }
     }
 
+    // Sum of the recommended items (static -- these are always shown, not toggled by customer).
+    let UPSELL_TOTAL = 0;
+
     function getCurrentTotal() {
       let total = 0;
       document.querySelectorAll('#parts-list input[type="checkbox"]').forEach(cb => {
@@ -614,7 +622,10 @@
     }
 
     function updateTotal() {
-      document.getElementById('running-total').textContent = fmt(getCurrentTotal());
+      const primary = getCurrentTotal();
+      document.getElementById('running-total').textContent = fmt(primary);
+      const recEl = document.getElementById('with-recommendations-value');
+      if (recEl) recEl.textContent = fmt(primary + UPSELL_TOTAL);
     }
 
     // Recompute the subtotal for a single category section. Called after each
@@ -792,6 +803,42 @@
 
       // Initial total
       updateTotal();
+
+      // Upsell recommendations section
+      const upsells = payload.upsells || [];
+      if (upsells.length > 0) {
+        UPSELL_TOTAL = upsells.reduce((s, u) => s + (Number(u.price) || 0), 0);
+
+        // Render the "Recommended for your van" callout
+        const upsellHtml = `
+          <div style="background:var(--selected-bg);border:1.5px solid var(--selected-border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--selected-border);margin-bottom:10px;">Recommended for your van</div>
+            ${upsells.map(u => `
+              <div style="padding:10px 0;border-bottom:1px solid rgba(95,125,69,0.18);">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px;">
+                  <span style="font-size:14px;font-weight:600;">${esc(u.name)}</span>
+                  <span style="font-size:14px;font-weight:700;color:var(--primary);">${Number(u.price) > 0 ? fmt(Number(u.price)) : 'POA'}</span>
+                </div>
+                <p style="font-size:13px;color:var(--text-muted);line-height:1.45;margin:0;">${esc(u.rationale)}</p>
+              </div>
+            `).join('')}
+          </div>`;
+        document.getElementById('upsell-section').innerHTML = upsellHtml;
+
+        // Replace single total with dual total layout
+        document.getElementById('total-container').innerHTML = `
+          <div style="background:var(--surface);border-radius:var(--radius);overflow:hidden;margin-bottom:10px;border:1px solid var(--border);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);">
+              <span style="font-size:14px;color:var(--text-muted);font-weight:500;">Your items</span>
+              <span id="running-total" style="font-size:18px;font-weight:700;color:var(--text-muted);">$0.00</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;background:var(--primary);">
+              <span style="font-size:15px;font-weight:600;opacity:0.85;color:#fff;">With recommendations</span>
+              <span id="with-recommendations-value" style="font-size:26px;font-weight:800;color:#fff;">$0.00</span>
+            </div>
+          </div>`;
+        updateTotal();
+      }
 
       // Live total + per-category subtotal on checkbox change
       partsList.addEventListener('change', e => {
