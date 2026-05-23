@@ -42,13 +42,14 @@ const state = {
   customer: {},
   vehicle: {},
   selected: new Set(),
+  quantities: {},   // { [partId]: qty } -- defaults to 1 when not set
   customParts: [],
   sharedAt: null,
   status: 'draft',
   notes: '',
   estimates: JSON.parse(localStorage.getItem('vm_estimates') || '[]'),
   homeFilter: { query: '', status: 'all', sort: 'updated' },
-  upsells: []       // [{ id, productId, name, price, rationale, included, priceEdited }]
+  upsells: []       // [{ id, productId, name, price, rationale, included, priceEdited, nameEdited }]
 };
 
 // === UTILS ===
@@ -293,6 +294,7 @@ function resetState() {
   state.customer = {};
   state.vehicle = {};
   state.selected = new Set();
+  state.quantities = {};
   state.customParts = [];
   state.upsells = [];
   state.sharedAt = null;
@@ -321,6 +323,9 @@ function loadEstimate(id) {
   state.customer = { ...est.customer };
   state.vehicle = { ...est.vehicle };
   state.selected = new Set(est.selectedParts);
+  const savedQtys = est.partQtys || {};
+  state.quantities = {};
+  est.selectedParts.forEach(pid => { state.quantities[pid] = savedQtys[pid] || 1; });
   state.customParts = (est.customParts || []).map(cp => ({ ...cp }));
   state.upsells = (est.upsells || []).map(u => ({ ...u, included: true, priceEdited: u.price > 0 && !UPSELL_CATALOG[u.id]?.productId }));
   state.sharedAt = est.sharedAt || null;
@@ -342,6 +347,9 @@ function duplicateEstimate(id) {
   state.customer = { ...src.customer };
   state.vehicle = { ...src.vehicle };
   state.selected = new Set(src.selectedParts);
+  const srcQtys = src.partQtys || {};
+  state.quantities = {};
+  src.selectedParts.forEach(pid => { state.quantities[pid] = srcQtys[pid] || 1; });
   state.customParts = (src.customParts || []).map(cp => ({ ...cp }));
   state.upsells = (src.upsells || []).map(u => ({ ...u, included: true }));
   state.sharedAt = null;
@@ -478,20 +486,28 @@ function getSuggestedUpsells() {
 }
 
 // Re-compute suggestions and merge with existing state.upsells,
-// preserving any edits Mike has made (include toggle, rationale text, custom price).
+// preserving any edits Mike has made (include toggle, name, rationale, custom price).
+// Custom upsells added manually (no UPSELL_CATALOG entry) are always preserved.
 function refreshUpsells() {
   const fresh = getSuggestedUpsells();
-  state.upsells = fresh.map(sugg => {
-    const existing = state.upsells.find(u => u.id === sugg.id);
-    if (!existing) return sugg;
-    return {
-      ...sugg,
-      included:    existing.included,
-      rationale:   existing.rationale,
-      price:       existing.priceEdited ? existing.price : sugg.price,
-      priceEdited: existing.priceEdited
-    };
-  });
+  // Keep any user-added custom items that aren't in the catalog
+  const customUpsells = state.upsells.filter(u => !UPSELL_CATALOG[u.id]);
+  state.upsells = [
+    ...fresh.map(sugg => {
+      const existing = state.upsells.find(u => u.id === sugg.id);
+      if (!existing) return sugg;
+      return {
+        ...sugg,
+        included:    existing.included,
+        name:        existing.nameEdited ? existing.name : sugg.name,
+        rationale:   existing.rationale,
+        price:       existing.priceEdited ? existing.price : sugg.price,
+        priceEdited: existing.priceEdited,
+        nameEdited:  existing.nameEdited
+      };
+    }),
+    ...customUpsells
+  ];
 }
 
 function renderParts() {
@@ -531,21 +547,37 @@ function renderParts() {
 
 function renderPartRow(p) {
   const sel = state.selected.has(p.id);
-  const price = p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA';
+  const qty = sel ? (state.quantities[p.id] || 1) : 0;
+  const unitPrice = p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA';
+  const priceCell = sel && p.installedPrice > 0 && qty > 1
+    ? `<span class="part-price-total">${fmt(p.installedPrice * qty)}</span><span class="part-price-unit">${unitPrice} ea</span>`
+    : unitPrice;
   return `
     <div class="part-item ${sel ? 'selected' : ''}" data-part-id="${esc(p.id)}">
-      <div class="part-checkbox">${sel ? '&#10003;' : ''}</div>
+      ${sel ? `
+        <div class="part-qty-stepper">
+          <button class="qty-btn qty-dec" data-part-id="${esc(p.id)}" type="button" aria-label="Decrease quantity">-</button>
+          <span class="qty-val">${qty}</span>
+          <button class="qty-btn qty-inc" data-part-id="${esc(p.id)}" type="button" aria-label="Increase quantity">+</button>
+        </div>
+      ` : `<div class="part-checkbox"></div>`}
       <div class="part-info">
         <div class="part-name">${esc(p.name)}</div>
         ${p.notes ? `<div class="part-note">${esc(p.notes)}</div>` : ''}
       </div>
-      <div class="part-price">${price}</div>
+      <div class="part-price">${priceCell}</div>
     </div>
   `;
 }
 
 function togglePart(id) {
-  state.selected.has(id) ? state.selected.delete(id) : state.selected.add(id);
+  if (state.selected.has(id)) {
+    state.selected.delete(id);
+    delete state.quantities[id];
+  } else {
+    state.selected.add(id);
+    state.quantities[id] = 1;
+  }
 
   const item = document.querySelector(`.part-item[data-part-id="${id}"]`);
   const product = PRODUCTS.find(p => p.id === id);
@@ -555,7 +587,29 @@ function togglePart(id) {
   updateFooter();
 
   if (isSelectedSheetOpen()) {
-    if (state.selected.size === 0) closeSelectedSheet();
+    if (state.selected.size === 0 && state.customParts.length === 0) closeSelectedSheet();
+    else renderSelectedSheet();
+  }
+}
+
+// Set qty for a part directly. qty <= 0 removes it from the selection.
+function setPartQty(id, qty) {
+  if (qty <= 0) {
+    state.selected.delete(id);
+    delete state.quantities[id];
+  } else {
+    state.selected.add(id);
+    state.quantities[id] = qty;
+  }
+  const product = PRODUCTS.find(p => p.id === id);
+  if (product) {
+    const item = document.querySelector(`.part-item[data-part-id="${id}"]`);
+    if (item) item.outerHTML = renderPartRow(product);
+  }
+  updateCategoryBadge(id);
+  updateFooter();
+  if (isSelectedSheetOpen()) {
+    if (state.selected.size === 0 && state.customParts.length === 0) closeSelectedSheet();
     else renderSelectedSheet();
   }
 }
@@ -575,10 +629,11 @@ function updateCategoryBadge(id) {
 }
 
 function updateFooter() {
-  const catalogCount = state.selected.size;
+  const catalogCount = [...state.selected].reduce((sum, id) => sum + (state.quantities[id] || 1), 0);
   const catalogTotal = [...state.selected].reduce((sum, id) => {
     const p = PRODUCTS.find(prod => prod.id === id);
-    return sum + (p ? p.installedPrice : 0);
+    const qty = state.quantities[id] || 1;
+    return sum + (p ? p.installedPrice * qty : 0);
   }, 0);
   const customCount = state.customParts.length;
   const customTotal = state.customParts.reduce((sum, cp) => sum + cp.price, 0);
@@ -609,13 +664,17 @@ function renderSelectedSheet() {
 
   let html = CATEGORIES.filter(cat => grouped[cat]).map(cat => `
     <div class="selected-sheet-category">${esc(cat)}</div>
-    ${grouped[cat].map(p => `
+    ${grouped[cat].map(p => {
+      const qty = p.qty || 1;
+      const label = qty > 1 ? `${esc(p.name)} &times;${qty}` : esc(p.name);
+      const price = p.installedPrice > 0 ? fmt(p.installedPrice * qty) : 'POA';
+      return `
       <div class="selected-sheet-row">
-        <span class="selected-sheet-name">${esc(p.name)}</span>
-        <span class="selected-sheet-price">${p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA'}</span>
+        <span class="selected-sheet-name">${label}</span>
+        <span class="selected-sheet-price">${price}</span>
         <button class="selected-sheet-remove" type="button" data-part-id="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">&times;</button>
       </div>
-    `).join('')}
+    `}).join('')}
   `).join('');
 
   if (state.customParts.length > 0) {
@@ -693,11 +752,15 @@ function filterParts(query) {
 
 // === ESTIMATE ===
 function getSelectedProducts() {
-  return [...state.selected].map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
+  return [...state.selected].map(id => {
+    const p = PRODUCTS.find(prod => prod.id === id);
+    if (!p) return null;
+    return { ...p, qty: state.quantities[id] || 1 };
+  }).filter(Boolean);
 }
 
 function calcTotal(products) {
-  return products.reduce((sum, p) => sum + p.installedPrice, 0);
+  return products.reduce((sum, p) => sum + p.installedPrice * (p.qty || 1), 0);
 }
 
 function renderEstimate() {
@@ -752,18 +815,24 @@ function renderEstimate() {
 
     ${CATEGORIES.filter(cat => grouped[cat]).map(cat => {
       const items = grouped[cat];
-      const subtotal = items.reduce((s, p) => s + p.installedPrice, 0);
+      const subtotal = items.reduce((s, p) => s + p.installedPrice * (p.qty || 1), 0);
       const hasPOA = items.some(p => p.installedPrice <= 0);
-      const showSubtotal = items.length > 1;
+      const showSubtotal = items.length > 1 || items.some(p => (p.qty || 1) > 1);
       return `
       <div class="estimate-section">
         <div class="estimate-section-label">${esc(cat)}</div>
-        ${items.map(p => `
+        ${items.map(p => {
+          const qty = p.qty || 1;
+          const nameLabel = qty > 1
+            ? `${esc(p.name)} <span class="estimate-qty-badge">&times;${qty}</span>`
+            : esc(p.name);
+          const linePrice = p.installedPrice > 0 ? fmt(p.installedPrice * qty) : 'POA';
+          return `
           <div class="estimate-row">
-            <span class="estimate-row-label">${esc(p.name)}</span>
-            <span class="estimate-row-value price">${p.installedPrice > 0 ? fmt(p.installedPrice) : 'POA'}</span>
+            <span class="estimate-row-label">${nameLabel}</span>
+            <span class="estimate-row-value price">${linePrice}</span>
           </div>
-        `).join('')}
+        `}).join('')}
         ${showSubtotal ? `
           <div class="estimate-row subtotal-row">
             <span class="estimate-row-label">Subtotal${hasPOA ? '<span class="poa-mark">*</span>' : ''}</span>
@@ -892,13 +961,9 @@ function renderUpsellArea() {
 function renderUpsellBuilder() {
   const builder = document.getElementById('upsell-builder');
   if (!builder) return;
-  if (state.upsells.length === 0) {
-    builder.innerHTML = '<p class="upsell-empty">No add-on suggestions for the selected items.</p>';
-    return;
-  }
-  builder.innerHTML = state.upsells.map(u => {
-    const isPOA = !u.productId;
-    return `
+  const itemsHtml = state.upsells.length === 0
+    ? '<p class="upsell-empty">No add-on suggestions for the selected items.</p>'
+    : state.upsells.map(u => `
     <div class="upsell-builder-item${u.included ? ' included' : ''}" data-upsell-id="${esc(u.id)}">
       <label class="upsell-item-label">
         <div class="upsell-item-check-wrap">
@@ -906,19 +971,41 @@ function renderUpsellBuilder() {
         </div>
         <div class="upsell-item-body">
           <div class="upsell-item-header">
-            <span class="upsell-item-name">${esc(u.name)}</span>
-            ${isPOA
-              ? `<input type="text" class="upsell-item-price-input" data-upsell-id="${esc(u.id)}"
-                   value="${u.price > 0 ? u.price : ''}" placeholder="Enter price" inputmode="decimal" autocomplete="off">`
-              : `<span class="upsell-item-price">${fmt(u.price)}</span>`
-            }
+            <input type="text" class="upsell-item-name-input" data-upsell-id="${esc(u.id)}"
+              value="${esc(u.name)}" placeholder="Item name" autocomplete="off">
+            <input type="text" class="upsell-item-price-input" data-upsell-id="${esc(u.id)}"
+              value="${u.price > 0 ? u.price : ''}" placeholder="Price" inputmode="decimal" autocomplete="off">
+            <button class="upsell-item-remove" type="button" data-upsell-id="${esc(u.id)}" aria-label="Remove ${esc(u.name)}">&#215;</button>
           </div>
           <textarea class="upsell-item-rationale" data-upsell-id="${esc(u.id)}"
                     rows="2" placeholder="Rationale shown to customer">${esc(u.rationale)}</textarea>
         </div>
       </label>
-    </div>`;
-  }).join('');
+    </div>`).join('');
+
+  builder.innerHTML = itemsHtml +
+    '<button type="button" class="btn-add-upsell">+ Add Recommendation</button>';
+}
+
+// Add a blank custom upsell item to the builder.
+function addCustomUpsellItem() {
+  const newId = 'custom-upsell-' + uid();
+  state.upsells.push({
+    id: newId,
+    productId: null,
+    name: '',
+    price: 0,
+    rationale: '',
+    included: false,
+    priceEdited: false,
+    nameEdited: false
+  });
+  renderUpsellBuilder();
+  const nameInput = document.querySelector(`.upsell-item-name-input[data-upsell-id="${newId}"]`);
+  if (nameInput) {
+    nameInput.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    nameInput.focus();
+  }
 }
 
 // === SHARE ===
@@ -1131,14 +1218,15 @@ function flashSaved(btnEl) {
 
 // === CUSTOM PARTS ===
 function getAllSelectedItems() {
-  const standard = getSelectedProducts();
+  const standard = getSelectedProducts(); // already includes qty
   const custom = state.customParts.map(cp => ({
     id: cp.id,
     name: cp.name,
     category: 'Custom',
     installedPrice: cp.price,
     notes: cp.notes || '',
-    isCustom: true
+    isCustom: true,
+    qty: 1
   }));
   return [...standard, ...custom];
 }
@@ -1219,6 +1307,7 @@ function saveEstimate() {
     customer: { ...state.customer },
     vehicle: { ...state.vehicle },
     selectedParts: [...state.selected],
+    partQtys: { ...state.quantities },
     customParts: state.customParts.map(cp => ({ ...cp })),
     upsells: state.upsells
       .filter(u => u.included)
@@ -1283,12 +1372,13 @@ function debouncedPersistUpsells() {
 
 // === CLOUD SYNC (Google Sheets) ===
 function buildSyncPayload(est) {
+  const partQtys = est.partQtys || {};
   const products = est.selectedParts
     .map(id => PRODUCTS.find(p => p.id === id))
     .filter(Boolean);
-  const customParts = (est.customParts || []).map(cp => ({ id: cp.id, name: cp.name, category: 'Custom', price: cp.price }));
+  const customParts = (est.customParts || []).map(cp => ({ id: cp.id, name: cp.name, category: 'Custom', price: cp.price, qty: 1 }));
   const allParts = [
-    ...products.map(p => ({ id: p.id, name: p.name, category: p.category, price: p.installedPrice })),
+    ...products.map(p => ({ id: p.id, name: p.name, category: p.category, price: p.installedPrice, qty: partQtys[p.id] || 1 })),
     ...customParts
   ];
   const v = est.vehicle;
@@ -1650,8 +1740,20 @@ document.addEventListener('DOMContentLoaded', () => {
       header.closest('.category-section').classList.toggle('open');
       return;
     }
+    // Qty stepper: - and + buttons
+    const qtyBtn = e.target.closest('.qty-btn');
+    if (qtyBtn) {
+      const pid = qtyBtn.dataset.partId;
+      const current = state.quantities[pid] || 1;
+      setPartQty(pid, qtyBtn.classList.contains('qty-inc') ? current + 1 : current - 1);
+      return;
+    }
     const item = e.target.closest('.part-item');
-    if (item) togglePart(item.dataset.partId);
+    if (item) {
+      const pid = item.dataset.partId;
+      // If already selected, clicking the row body does nothing -- use stepper to deselect
+      if (!state.selected.has(pid)) togglePart(pid);
+    }
   });
 
   // Search
@@ -1766,19 +1868,30 @@ document.addEventListener('DOMContentLoaded', () => {
       debouncedPersistNotes();
       return;
     }
+    // Upsell name edit
+    if (e.target.classList.contains('upsell-item-name-input')) {
+      const uid = e.target.dataset.upsellId;
+      const u = state.upsells.find(x => x.id === uid);
+      if (u) {
+        u.name = e.target.value;
+        u.nameEdited = true;
+        if (u.included) renderUpsellArea();
+        debouncedPersistUpsells();
+      }
+      return;
+    }
     // Upsell rationale edit
     if (e.target.classList.contains('upsell-item-rationale')) {
       const uid = e.target.dataset.upsellId;
       const u = state.upsells.find(x => x.id === uid);
       if (u) {
         u.rationale = e.target.value;
-        // Refresh customer-facing callout text live if included
         if (u.included) renderUpsellArea();
         debouncedPersistUpsells();
       }
       return;
     }
-    // Upsell price input (POA items)
+    // Upsell price input
     if (e.target.classList.contains('upsell-item-price-input')) {
       const uid = e.target.dataset.upsellId;
       const u = state.upsells.find(x => x.id === uid);
@@ -1792,7 +1905,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   estimateContent.addEventListener('click', e => {
-    if (e.target.closest('#btn-print-estimate')) window.print();
+    if (e.target.closest('#btn-print-estimate')) { window.print(); return; }
+    // Upsell remove button
+    const removeBtn = e.target.closest('.upsell-item-remove');
+    if (removeBtn) {
+      const uid = removeBtn.dataset.upsellId;
+      state.upsells = state.upsells.filter(u => u.id !== uid);
+      renderUpsellBuilder();
+      renderUpsellArea();
+      debouncedPersistUpsells();
+      return;
+    }
+    // Add recommendation button
+    if (e.target.closest('.btn-add-upsell')) {
+      addCustomUpsellItem();
+    }
   });
 
   // Done -> home
